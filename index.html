@@ -452,18 +452,26 @@ function monthFigure(key){
   return { kg:b.baselineAnnualKg/12, cats, est:true };
 }
 
-/* ---- baseline from quiz ---- */
+/* ---- baseline from quiz ----
+   Named constants for the annual-estimate model (India-calibrated; see CLAUDE.md / in-app About). */
+const DAYS_PER_YEAR = 365;
+const MEALS_PER_DAY = 3;
+const DIET_MEAL_FACTOR = { vegan:.7, veg:1.0, mixed:1.4, meat:3.0 };  // CO₂e multiplier per meal vs a veg baseline
+const FLIGHT_ANNUAL_KG = { 0:0, 1:560, 2:2000 };                      // est. annual flight CO₂e: none / occasional / frequent flyer
+const ELEC_TARIFF_PER_KWH = 8;                                        // ₹/kWh — converts a monthly ₹ bill into kWh
+const DEFAULT_MONTHLY_BILL = 1500;                                    // ₹/month fallback electricity bill
+const LPG_CYLINDER_KG = 14.2;                                         // kg per domestic LPG cylinder (~1 used/month)
+const SHOPPING_ANNUAL_KG = { rare:80, some:200, often:450 };          // est. annual goods CO₂e by shopping habit
 function baselineFrom(a){
   const km = a.km, mode=a.mode||"car", house=Math.max(1,a.house||3);
-  let travel = km*365*(F.travel[mode]??F.travel.car);
-  travel += (a.flights===2?2000 : a.flights===1?560 : 0);
-  const mealF = {vegan:.7,veg:1.0,mixed:1.4,meat:3.0}[a.diet||"mixed"];
-  const food = 3*365*mealF;
-  const kwhMo = (a.bill||1500)/8;                 // ₹8/kWh
+  let travel = km*DAYS_PER_YEAR*(F.travel[mode]??F.travel.car);
+  travel += FLIGHT_ANNUAL_KG[a.flights] || 0;
+  const food = MEALS_PER_DAY*DAYS_PER_YEAR*(DIET_MEAL_FACTOR[a.diet||"mixed"] ?? DIET_MEAL_FACTOR.mixed);
+  const kwhMo = (a.bill||DEFAULT_MONTHLY_BILL)/ELEC_TARIFF_PER_KWH;
   let home = kwhMo*12*F.home.electricity;
-  if(a.cook==="lpg"||a.cook==="png") home += 14.2*F.home.lpg*12; // ~1 cylinder/month
+  if(a.cook==="lpg"||a.cook==="png") home += LPG_CYLINDER_KG*F.home.lpg*12; // ~1 cylinder/month
   home = home/house;
-  const shopping = {rare:80,some:200,often:450}[a.shop||"some"];
+  const shopping = SHOPPING_ANNUAL_KG[a.shop||"some"] ?? SHOPPING_ANNUAL_KG.some;
   const byc={travel:round(travel),food:round(food),home:round(home),shopping:round(shopping)};
   return { total:Object.values(byc).reduce((x,y)=>x+y,0), byCat:byc, house };
 }
