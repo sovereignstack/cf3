@@ -1,0 +1,5 @@
+# Local tooling config — contains the harness project token, never commit/bundle it
+.mcp.json
+
+# Output artifacts, not app source
+mnt/
