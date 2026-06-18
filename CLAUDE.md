@@ -18,7 +18,7 @@ The entire app is a **single `index.html`** (HTML + CSS + vanilla JS) plus a ser
 6. **India-first.** Defaults, units, currency (₹), emission factors, and benchmarks are India-calibrated. Don't switch to US units/factors.
 7. **Accessibility is a baseline, not optional.** Preserve: semantic landmarks/headings, real `<label>`s, visible focus rings, the `aria-live` region, keyboard operability, the modal focus trap, the text-size / high-contrast / reduce-motion settings, and **every chart's `sr-only` `<table>` fallback**. Never use colour as the only way to convey meaning.
 8. **No-guilt tone.** Copy is calm, second-person, and encouraging. Increases are shown in **amber, never red** (red is reserved for destructive actions like delete). Always pair carbon numbers with tangible equivalences, and always be honest that figures are **estimates**.
-9. **Stay lean.** Fewer lines = fewer bugs and a smaller surface for a code reviewer. Prefer the simplest thing that works. Don't add abstraction the app doesn't need.
+9. **Stay lean, but readable.** Prefer the simplest thing that works and don't add abstraction the app doesn't need — but favour clear, conventionally-formatted code over extreme density. The inline script is Prettier-formatted (one statement per line); run `npm run format` (in `dev/`) after edits to keep it consistent.
 10. **Relative paths only.** All asset references are relative (`icon-64.png`, `sw.js`, …) so the app works when deployed in a subfolder (e.g. GitHub Pages project sites). Don't introduce absolute `/…` paths.
 
 ## Run and test

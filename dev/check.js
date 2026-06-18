@@ -8,7 +8,10 @@ const { execFileSync } = require("child_process");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
-if (!m) { console.error("no inline <script> found in index.html"); process.exit(1); }
+if (!m) {
+  console.error("no inline <script> found in index.html");
+  process.exit(1);
+}
 
 const tmp = path.join(os.tmpdir(), "_tread_check.js");
 fs.writeFileSync(tmp, m[1]);
