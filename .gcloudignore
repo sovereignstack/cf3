@@ -1,0 +1,12 @@
+# Keep the Cloud Build upload to just what the image needs (app shell + Dockerfile).
+# Note: when a .gcloudignore exists, gcloud uses it instead of .gitignore — so the
+# harness token and dev tooling are listed explicitly here.
+.git/
+.github/
+dev/
+mnt/
+node_modules/
+.mcp.json
+.gitignore
+*.md
+make_icons.py

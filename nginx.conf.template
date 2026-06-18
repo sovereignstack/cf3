@@ -1,0 +1,18 @@
+server {
+    listen       ${PORT};
+    server_name  _;
+    root         /usr/share/nginx/html;
+    index        index.html;
+
+    # Offline-first SPA: unknown paths fall back to the app shell.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Let the service worker manage app caching — don't let a CDN/proxy pin the shell or SW.
+    location = /index.html { add_header Cache-Control "no-cache"; }
+    location = /sw.js      { add_header Cache-Control "no-cache"; }
+
+    # Correct content type for the web manifest.
+    location = /manifest.webmanifest { default_type application/manifest+json; }
+}
