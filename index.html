@@ -1,0 +1,1017 @@
+<!doctype html>
+<html lang="en" class="ts-m">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15803D">
+<meta name="description" content="Tread is a private, offline-first app that helps you understand, track, and reduce your carbon footprint with simple daily logging and personalised actions. Your data never leaves your device.">
+<title>Tread — your carbon footprint, simply</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-64.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  /* ---- Design tokens (light-only; contrast-audited) ---- */
+  :root{
+    --bg:#F9FBF9; --surface:#FFFFFF; --surface-2:#F1F5F1; --line:#D9E2DA;
+    --ink:#1E293B; --ink-2:#475569;
+    --primary:#15803D; --primary-d:#0F5B34; --primary-tint:#E7F3EC;
+    --accent:#1D4ED8; --warn:#B45309; --danger:#B91C1C;
+    --c-travel:#2563EB; --c-food:#C2410C; --c-home:#7C3AED; --c-shopping:#0D9488;
+    --r:16px; --shadow:0 1px 2px rgba(16,40,28,.06), 0 6px 20px rgba(16,40,28,.05);
+    --focus:var(--accent);
+  }
+  html.hc{ --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#F2F4F2; --line:#0F172A;
+    --ink:#0A0F1A; --ink-2:#16202E; --primary:#0F5B34; --shadow:none; }
+  html.ts-s{font-size:15px} html.ts-m{font-size:17px} html.ts-l{font-size:19px} html.ts-xl{font-size:22px}
+
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; -webkit-text-size-adjust:100%;
+  }
+  h1,h2,h3{line-height:1.2; margin:0}
+  h1{font-size:1.55rem; letter-spacing:-.02em}
+  h2{font-size:1.18rem; letter-spacing:-.01em}
+  p{margin:.4rem 0}
+  a{color:var(--accent)}
+  .muted{color:var(--ink-2)}
+  .small{font-size:.85rem}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .skip{position:absolute;left:-999px;top:0;background:var(--primary);color:#fff;padding:.6rem 1rem;border-radius:0 0 var(--r) 0;z-index:50}
+  .skip:focus{left:0}
+
+  /* visible focus everywhere */
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible,summary:focus-visible{
+    outline:3px solid var(--focus); outline-offset:2px; border-radius:6px;
+  }
+
+  .app{max-width:520px;margin:0 auto;min-height:100dvh;position:relative;padding-bottom:84px;background:var(--bg)}
+  @media(min-width:560px){ body{background:linear-gradient(180deg,#EEF4EE,#F9FBF9)} .app{box-shadow:var(--shadow);min-height:100dvh} }
+
+  .appbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:.6rem;
+    padding:.7rem 1rem;background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .appbar .brand{display:flex;align-items:center;gap:.5rem;font-weight:700}
+  .appbar img{width:26px;height:26px;border-radius:7px}
+  .appbar .grow{flex:1}
+  .offline{display:none;align-items:center;gap:.35rem;font-size:.78rem;color:var(--primary-d);background:var(--primary-tint);
+    border:1px solid var(--line);padding:.2rem .5rem;border-radius:999px}
+  body.is-offline .offline{display:inline-flex}
+
+  main{padding:1rem 1rem 0}
+  .screen{display:none} .screen.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:1rem;box-shadow:var(--shadow);margin-bottom:1rem}
+  .stack>*+*{margin-top:.6rem}
+  .rowflex{display:flex;align-items:center;gap:.6rem}
+  .between{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+
+  /* hero stat */
+  .hero .label{color:var(--ink-2);font-size:.9rem;font-weight:600}
+  .hero .num{font-size:3rem;font-weight:800;letter-spacing:-.03em;line-height:1;margin:.2rem 0 .1rem}
+  .hero .num small{font-size:1rem;font-weight:700;color:var(--ink-2);letter-spacing:0}
+  .equiv{color:var(--ink-2);font-size:.92rem}
+  .delta{display:inline-flex;align-items:center;gap:.3rem;font-weight:700;font-size:.9rem;padding:.15rem .5rem;border-radius:999px;border:1px solid var(--line)}
+  .delta.down{color:var(--primary-d);background:var(--primary-tint)}
+  .delta.up{color:var(--warn);background:#FBF1E5}
+  .delta.flat{color:var(--ink-2);background:var(--surface-2)}
+
+  /* budget bar */
+  .budget{margin-top:.7rem}
+  .track{position:relative;height:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .track .fill{position:absolute;inset:0 auto 0 0;background:var(--primary);border-radius:999px}
+  .track .fill.over{background:var(--warn)}
+  .mark{position:absolute;top:-3px;width:2px;height:18px;background:var(--ink);opacity:.55}
+
+  /* donut + legend */
+  .donutwrap{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+  .donut{flex:0 0 132px}
+  .legend{list-style:none;margin:0;padding:0;flex:1;min-width:160px}
+  .legend li{display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.92rem}
+  .swatch{width:14px;height:14px;border-radius:4px;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
+  .legend .v{margin-left:auto;font-weight:700}
+  .legend .pct{color:var(--ink-2);width:3.2em;text-align:right}
+
+  /* bars */
+  .bars{display:grid;gap:.55rem;margin:.2rem 0}
+  .bar .top{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:.2rem}
+  .bar .meter{height:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .bar .meter i{display:block;height:100%;background:var(--primary);border-radius:999px}
+
+  /* buttons */
+  .btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+    padding:.7rem 1rem;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:44px}
+  .btn:hover{border-color:var(--ink-2)}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  .btn.primary:hover{background:var(--primary-d)}
+  .btn.block{width:100%}
+  .btn.danger{color:var(--danger);border-color:#E7B9B9}
+  .btn.small{min-height:36px;padding:.4rem .7rem;font-size:.85rem;border-radius:10px}
+
+  /* option chips / segmented */
+  .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem}
+  .opt{font:inherit;cursor:pointer;text-align:left;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);
+    padding:.7rem .8rem;border-radius:12px;min-height:48px;font-weight:600;display:flex;align-items:center;gap:.5rem}
+  .opt[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-tint);color:var(--primary-d)}
+  .opt .em{font-size:1.15rem}
+
+  .quickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:.55rem}
+  .quick{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:.7rem .5rem;text-align:center;font-weight:600;font-size:.82rem;min-height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25rem}
+  .quick .em{font-size:1.4rem}
+  .quick:hover{border-color:var(--primary)}
+
+  /* fields */
+  .field{margin:.6rem 0}
+  .field label{display:block;font-weight:600;margin-bottom:.3rem;font-size:.95rem}
+  input[type=number],input[type=text],select{font:inherit;width:100%;padding:.6rem .7rem;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);min-height:44px}
+  input[type=range]{width:100%}
+  .err{color:var(--danger);font-size:.85rem;margin-top:.25rem}
+
+  /* pills (effort + category tags) */
+  .pill{font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);background:var(--surface-2)}
+  .pill.travel{color:#1e40af;background:#E7EEFE;border-color:#cfe0fd}
+  .pill.food{color:#9a3412;background:#FBEAE0;border-color:#f3d2c0}
+  .pill.home{color:#5b21b6;background:#EFE8FE;border-color:#ddd0fb}
+  .pill.shopping{color:#0f766e;background:#DEF5F2;border-color:#c2ece6}
+  .pill.easy{color:var(--primary-d);background:var(--primary-tint)}
+  .pill.medium{color:#92560a;background:#FBF1E5}
+  .pill.challenging{color:#9a3412;background:#FBEAE0}
+
+  /* lists */
+  .item{display:flex;gap:.7rem;align-items:flex-start;padding:.7rem 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .item .em{font-size:1.3rem;flex:0 0 auto;width:1.6em;text-align:center}
+  .item .body{flex:1;min-width:0}
+  .item .body .t{font-weight:700}
+  .item .right{flex:0 0 auto;text-align:right;font-weight:700;white-space:nowrap}
+
+  .badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:.6rem}
+  .bg{border:1px solid var(--line);border-radius:14px;padding:.7rem .5rem;text-align:center;background:var(--surface-2);font-size:.78rem;font-weight:600;color:var(--ink-2)}
+  .bg.on{background:var(--primary-tint);border-color:#bfe0cb;color:var(--primary-d)}
+  .bg .em{display:block;font-size:1.5rem;margin-bottom:.2rem;filter:grayscale(1);opacity:.5}
+  .bg.on .em{filter:none;opacity:1}
+
+  /* bottom nav */
+  .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;z-index:30;
+    display:grid;grid-template-columns:repeat(5,1fr);align-items:end;
+    background:var(--bg);background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-top:1px solid var(--line);
+    padding:.35rem .4rem calc(.35rem + env(safe-area-inset-bottom))}
+  .nav button{font:inherit;cursor:pointer;border:0;background:none;color:var(--ink-2);font-size:.7rem;font-weight:700;
+    display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.4rem .2rem;border-radius:10px;min-height:48px}
+  .nav button .em{font-size:1.25rem;line-height:1}
+  .nav button[aria-current="page"]{color:var(--primary-d)}
+  .nav .fab{margin-top:-18px}
+  .nav .fab .em{width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;box-shadow:0 6px 16px rgba(21,128,61,.35)}
+  body.bare .nav{display:none}
+
+  /* sheet / modal */
+  .backdrop{position:fixed;inset:0;background:rgba(10,20,15,.5);z-index:40;display:none}
+  .backdrop.open{display:block}
+  .sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:520px;z-index:41;
+    background:var(--surface);border-radius:20px 20px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.18);
+    max-height:88dvh;overflow:auto;display:none;padding:1rem 1rem calc(1.4rem + env(safe-area-inset-bottom))}
+  .sheet.open{display:block;animation:up .25s ease}
+  @keyframes up{from{transform:translate(-50%,16px);opacity:.6}to{transform:translate(-50%,0);opacity:1}}
+  .sheet .grip{width:40px;height:4px;border-radius:999px;background:var(--line);margin:0 auto .7rem}
+
+  /* toast */
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:60;max-width:480px;width:calc(100% - 2rem);
+    background:var(--ink);color:#fff;border-radius:12px;padding:.7rem .9rem;display:flex;align-items:center;gap:.7rem;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+  .toast.show{opacity:1;pointer-events:auto}
+  .toast .u{margin-left:auto;background:none;border:1px solid #ffffff55;color:#fff;border-radius:8px;padding:.25rem .6rem;font:inherit;font-weight:700;cursor:pointer}
+
+  details{border:1px solid var(--line);border-radius:12px;padding:.2rem .8rem;background:var(--surface-2)}
+  details summary{cursor:pointer;font-weight:700;padding:.5rem 0}
+  .note{font-size:.85rem;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:.6rem .8rem}
+
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+  html.rm *{animation:none!important;transition:none!important}
+</style>
+</head>
+<body class="bare">
+<a class="skip" href="#main">Skip to content</a>
+<div id="live" class="sr-only" aria-live="polite"></div>
+
+<div class="app">
+  <header class="appbar" id="appbar" hidden>
+    <span class="brand"><img src="icon-64.png" alt=""> Tread</span>
+    <span class="grow"></span>
+    <span class="offline" role="status"><span aria-hidden="true">✓</span> Works offline</span>
+  </header>
+
+  <main id="main">
+
+    <!-- WELCOME / CONSENT -->
+    <section id="screen-welcome" class="screen" aria-labelledby="w-h">
+      <div style="text-align:center;margin:1.2rem 0 .6rem">
+        <img src="icon-192.png" alt="" width="72" height="72" style="border-radius:18px">
+        <h1 id="w-h" style="margin-top:.7rem">Tread</h1>
+        <p class="muted" style="margin-top:.2rem">See your carbon. Shrink it, simply.</p>
+      </div>
+      <div class="card stack">
+        <h2>Your data stays with you</h2>
+        <p class="small">Tread has <strong>no account and no server</strong>. Everything you enter is stored only in this browser, on this device.</p>
+        <ul class="small" style="margin:.2rem 0 .2rem 1.1rem;padding:0">
+          <li><strong>What's stored:</strong> your setup answers, activity logs, goals and settings.</li>
+          <li><strong>Why:</strong> only to calculate and show your footprint.</li>
+          <li><strong>Sharing:</strong> nothing is sent anywhere, sold, or tracked.</li>
+          <li><strong>Your control:</strong> export or erase everything any time, from the <em>You</em> tab.</li>
+        </ul>
+        <details>
+          <summary>Read the full privacy notice</summary>
+          <div class="small" id="privacy-full"></div>
+        </details>
+        <label class="rowflex" style="align-items:flex-start;gap:.6rem;font-weight:600">
+          <input type="checkbox" id="consent-cb" style="width:22px;height:22px;margin-top:.1rem">
+          <span>I understand my data is processed only on this device, for this purpose.</span>
+        </label>
+        <button class="btn primary block" id="consent-go" disabled>Agree &amp; continue</button>
+        <p class="small muted" style="text-align:center;margin:.2rem 0 0">No email. No sign-up. Just the app.</p>
+      </div>
+    </section>
+
+    <!-- QUIZ -->
+    <section id="screen-quiz" class="screen" aria-labelledby="q-h">
+      <h1 id="q-h">A quick starting point</h1>
+      <p class="muted small">Six taps to estimate where you are today. Not sure on something? Leave the default — you can refine it later.</p>
+
+      <div class="card stack">
+        <h2 class="small" style="color:var(--c-travel)">🚆 Getting around</h2>
+        <div class="field">
+          <label>Main way you travel</label>
+          <div class="opts" data-group="mode">
+            <button type="button" class="opt" data-v="two_wheeler"><span class="em">🛵</span>Two-wheeler</button>
+            <button type="button" class="opt" data-v="car"><span class="em">🚗</span>Car</button>
+            <button type="button" class="opt" data-v="bus"><span class="em">🚌</span>Bus</button>
+            <button type="button" class="opt" data-v="train"><span class="em">🚆</span>Train / metro</button>
+            <button type="button" class="opt" data-v="walk"><span class="em">🚶</span>Walk / cycle</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="q-km">About how far do you travel each day? <output id="q-km-out">20 km</output></label>
+          <input type="range" id="q-km" min="0" max="120" step="2" value="20" aria-describedby="q-km-out">
+        </div>
+        <div class="field">
+          <label>Flights in a year</label>
+          <div class="opts" data-group="flights">
+            <button type="button" class="opt" data-v="0">None</button>
+            <button type="button" class="opt" data-v="1">1–2 short</button>
+            <button type="button" class="opt" data-v="2">Several</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card stack">
+        <h2 class="small" style="color:var(--c-food)">🍽 Food</h2>
+        <div class="field">
+          <label>Closest to your diet</label>
+          <div class="opts" data-group="diet">
+            <button type="button" class="opt" data-v="vegan"><span class="em">🌱</span>Vegan</button>
+            <button type="button" class="opt" data-v="veg"><span class="em">🥗</span>Vegetarian</button>
+            <button type="button" class="opt" data-v="mixed"><span class="em">🍗</span>Some meat</button>
+            <button type="button" class="opt" data-v="meat"><span class="em">🍖</span>Lots of meat</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card stack">
+        <h2 class="small" style="color:var(--c-home)">💡 Home</h2>
+        <div class="field">
+          <label for="q-bill">Monthly electricity bill (₹)</label>
+          <input type="number" id="q-bill" min="0" step="50" value="1500" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label>Cooking fuel</label>
+          <div class="opts" data-group="cook">
+            <button type="button" class="opt" data-v="lpg"><span class="em">🔥</span>LPG cylinder</button>
+            <button type="button" class="opt" data-v="png"><span class="em">🪈</span>Piped gas</button>
+            <button type="button" class="opt" data-v="electric"><span class="em">⚡</span>Induction</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="q-house">People in your home</label>
+          <input type="number" id="q-house" min="1" max="20" step="1" value="3" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="card stack">
+        <h2 class="small" style="color:var(--c-shopping)">🛍 Shopping</h2>
+        <div class="field">
+          <label>New clothes &amp; gadgets</label>
+          <div class="opts" data-group="shop">
+            <button type="button" class="opt" data-v="rare">Rarely</button>
+            <button type="button" class="opt" data-v="some">Sometimes</button>
+            <button type="button" class="opt" data-v="often">Often</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack" style="margin-bottom:1.2rem">
+        <button class="btn primary block" id="quiz-go">See my footprint</button>
+        <button class="btn block" id="quiz-skip">Skip for now — use a typical estimate</button>
+      </div>
+    </section>
+
+    <!-- HOME -->
+    <section id="screen-home" class="screen" aria-labelledby="h-h">
+      <h1 id="h-h" class="sr-only">Your dashboard</h1>
+      <div id="home-dynamic" class="stack"></div>
+    </section>
+
+    <!-- INSIGHTS -->
+    <section id="screen-insights" class="screen" aria-labelledby="i-h">
+      <h1 id="i-h">Insights</h1>
+      <div id="insights-dynamic" class="stack"></div>
+    </section>
+
+    <!-- ACT -->
+    <section id="screen-act" class="screen" aria-labelledby="a-h">
+      <h1 id="a-h">Act</h1>
+      <div id="act-dynamic" class="stack"></div>
+    </section>
+
+    <!-- YOU -->
+    <section id="screen-you" class="screen" aria-labelledby="y-h">
+      <h1 id="y-h">You</h1>
+      <div id="you-dynamic" class="stack"></div>
+    </section>
+
+  </main>
+
+  <nav class="nav" id="nav" aria-label="Primary">
+    <button data-go="home"><span class="em" aria-hidden="true">🏠</span>Home</button>
+    <button data-go="insights"><span class="em" aria-hidden="true">📈</span>Insights</button>
+    <button class="fab" id="log-btn" aria-haspopup="dialog"><span class="em" aria-hidden="true">＋</span><span class="sr-only">Log activity</span>Log</button>
+    <button data-go="act"><span class="em" aria-hidden="true">🌱</span>Act</button>
+    <button data-go="you"><span class="em" aria-hidden="true">⚙️</span>You</button>
+  </nav>
+</div>
+
+<!-- LOG SHEET -->
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h" tabindex="-1">
+  <div class="grip" aria-hidden="true"></div>
+  <div id="sheet-body"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast" role="status"><span id="toast-msg"></span><button class="u" id="toast-undo" hidden>Undo</button></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Tread — single-file, offline, local-only carbon tracker.
+   No network calls. All state lives in localStorage on device.
+   ============================================================ */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const live = m => { $("#live").textContent=""; setTimeout(()=>$("#live").textContent=m,30); };
+
+/* ---- emission factors (India-first; estimates) ---- */
+const F = {
+  travel:{ two_wheeler:.06, car:.17, bus:.10, train:.04, auto:.10, walk:0, flight:.25 }, // kg/km (flight RF-inclusive)
+  food:{ vegan:.7, veg:1.0, fish:1.3, chicken:1.6, redmeat:3.5 },                         // kg/meal
+  home:{ electricity:.71, lpg:2.98 },                                                     // kg/kWh, kg/kg
+  shopping:{ clothing:15, phone:70, laptop:300 }                                          // kg/item
+};
+const SUB = { two_wheeler:"Two-wheeler",car:"Car",bus:"Bus",train:"Train / metro",auto:"Auto-rickshaw",walk:"Walk / cycle",flight:"Flight",
+  vegan:"Vegan meal",veg:"Veg meal",fish:"Fish meal",chicken:"Chicken meal",redmeat:"Red-meat meal",
+  electricity:"Electricity",lpg:"Cooking gas (LPG)",clothing:"New clothing",phone:"Phone",laptop:"Laptop" };
+const CATLABEL = {travel:"Travel",food:"Food",home:"Home",shopping:"Shopping"};
+const CATCOLOR = {travel:"var(--c-travel)",food:"var(--c-food)",home:"var(--c-home)",shopping:"var(--c-shopping)"};
+const CATEM = {travel:"🚆",food:"🍽",home:"💡",shopping:"🛍"};
+
+/* benchmarks, monthly kg per person */
+const BM = { india:1900/12, target:1500/12, global:4700/12 };
+
+const PRESETS = [
+  {em:"🚆",label:"Train / metro",cat:"travel",sub:"train",qty:24,unit:"km"},
+  {em:"🛵",label:"Two-wheeler",cat:"travel",sub:"two_wheeler",qty:15,unit:"km"},
+  {em:"🚗",label:"Car",cat:"travel",sub:"car",qty:15,unit:"km"},
+  {em:"🛺",label:"Auto",cat:"travel",sub:"auto",qty:6,unit:"km"},
+  {em:"🥗",label:"Veg meal",cat:"food",sub:"veg",qty:1,unit:"meal"},
+  {em:"🍗",label:"Chicken",cat:"food",sub:"chicken",qty:1,unit:"meal"},
+  {em:"🍖",label:"Red meat",cat:"food",sub:"redmeat",qty:1,unit:"meal"},
+  {em:"💡",label:"Electricity",cat:"home",sub:"electricity",qty:5,unit:"kWh"},
+  {em:"🔥",label:"Cooking gas",cat:"home",sub:"lpg",qty:.5,unit:"kg"},
+  {em:"🚶",label:"Walk / cycle",cat:"travel",sub:"walk",qty:3,unit:"km"},
+];
+
+const ACTIONS = [
+  {id:"meat1",cat:"food",effort:"challenging",save:450,title:"Cut red meat to once a week",why:"Red meat is the most carbon-intensive food by far. A few swaps a week move the needle more than almost anything else."},
+  {id:"meatfree",cat:"food",effort:"easy",save:200,title:"Go meat-free one day a week",why:"A single repeatable veg day is an easy, lasting win."},
+  {id:"train",cat:"travel",effort:"medium",save:300,title:"Swap two car trips for train or metro",why:"Rail emits a fraction of car travel per kilometre."},
+  {id:"flight",cat:"travel",effort:"challenging",save:500,title:"Skip one short-haul flight this year",why:"One flight can outweigh months of careful daily choices."},
+  {id:"ac",cat:"home",effort:"easy",save:120,title:"Set the AC to 26°C",why:"Every degree higher cuts cooling energy — and the bill."},
+  {id:"led",cat:"home",effort:"easy",save:60,title:"Switch remaining bulbs to LED",why:"LEDs use about 80% less power for the same light."},
+  {id:"standby",cat:"home",effort:"easy",save:40,title:"Switch off standby power",why:"Idle devices quietly draw power around the clock."},
+  {id:"clothes",cat:"shopping",effort:"medium",save:60,title:"Buy one fewer new garment this month",why:"Every new garment carries hidden manufacturing emissions."},
+];
+
+const LEVELS = [ [0,"Seedling"],[250,"Sprout"],[750,"Sapling"],[1500,"Grove"],[2500,"Canopy"] ];
+const BADGES = { first_log:["📝","First activity"], week:["🔥","7-day streak"], action1:["✅","First action done"], allcats:["🧭","All four areas"], under:["🌍","Below your start"] };
+
+/* ---- storage (one object) ---- */
+const blank = () => ({
+  consent:null,
+  profile:{ createdAt:todayISO(), baselineAnnualKg:0, byCat:{travel:0,food:0,home:0,shopping:0}, house:3,
+            xp:0, streak:0, best:0, lastLog:null },
+  logs:[], pledges:{}, badges:{},
+  settings:{ textSize:"m", hc:false, rm:"system", region:"IN" }
+});
+let S = load();
+function load(){ try{ const r=localStorage.getItem("tread"); return r?JSON.parse(r):blank(); }catch(e){ return blank(); } }
+function save(){ try{ localStorage.setItem("tread", JSON.stringify(S)); }catch(e){ live("Couldn't save — storage may be full or blocked."); } }
+
+/* ---- date helpers (local) ---- */
+function todayISO(d=new Date()){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+const monthKey = iso => iso.slice(0,7);
+function monthLabel(key){ const [y,m]=key.split("-"); return new Date(y,m-1,1).toLocaleString(undefined,{month:"short"}); }
+function lastMonths(n){ const out=[],d=new Date(); for(let i=0;i<n;i++){ out.unshift(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")); d.setMonth(d.getMonth()-1);} return out; }
+
+/* ---- engine ---- */
+function kgFor(cat,sub,qty){ return (F[cat]?.[sub]||0)*qty; }
+function logsIn(key){ return S.logs.filter(l=>monthKey(l.dateISO)===key); }
+function sumKg(arr){ return arr.reduce((a,l)=>a+l.kg,0); }
+function byCat(arr){ const o={travel:0,food:0,home:0,shopping:0}; arr.forEach(l=>o[l.cat]+=l.kg); return o; }
+function equiv(kg){ return { km: Math.round(kg/0.17), petrol: Math.round(kg/2.31) }; }
+const round = (n,d=0)=>{ const f=10**d; return Math.round(n*f)/f; };
+const fmt = kg => kg>=1000 ? round(kg/1000,2)+" t" : Math.round(kg)+" kg";
+
+/* current-month figure: real logs if any, else baseline estimate */
+function monthFigure(key){
+  const ls=logsIn(key);
+  if(ls.length) return { kg:sumKg(ls), cats:byCat(ls), est:false };
+  const b=S.profile; const cats={}; for(const c in b.byCat) cats[c]=b.byCat[c]/12;
+  return { kg:b.baselineAnnualKg/12, cats, est:true };
+}
+
+/* ---- baseline from quiz ---- */
+function baselineFrom(a){
+  const km = a.km, mode=a.mode||"car", house=Math.max(1,a.house||3);
+  let travel = km*365*(F.travel[mode]??F.travel.car);
+  travel += (a.flights===2?2000 : a.flights===1?560 : 0);
+  const mealF = {vegan:.7,veg:1.0,mixed:1.4,meat:3.0}[a.diet||"mixed"];
+  const food = 3*365*mealF;
+  const kwhMo = (a.bill||1500)/8;                 // ₹8/kWh
+  let home = kwhMo*12*F.home.electricity;
+  if(a.cook==="lpg"||a.cook==="png") home += 14.2*F.home.lpg*12; // ~1 cylinder/month
+  home = home/house;
+  const shopping = {rare:80,some:200,often:450}[a.shop||"some"];
+  const byc={travel:round(travel),food:round(food),home:round(home),shopping:round(shopping)};
+  return { total:Object.values(byc).reduce((x,y)=>x+y,0), byCat:byc, house };
+}
+
+/* ---- gamification ---- */
+function levelOf(xp){ let lv=LEVELS[0]; LEVELS.forEach(l=>{ if(xp>=l[0]) lv=l; }); return lv; }
+function nextLevel(xp){ return LEVELS.find(l=>l[0]>xp)||null; }
+function award(id){ if(!S.badges[id]){ S.badges[id]=todayISO(); live("Badge earned: "+BADGES[id][1]); } }
+/* recompute xp / streak / badges from the full log set + pledges.
+   Called after any change so add, delete and demo-fill stay consistent. */
+function recomputeProgress(){
+  const p=S.profile;
+  const byDay={}; S.logs.forEach(l=>{ byDay[l.dateISO]=(byDay[l.dateISO]||0)+1; });
+  let xp=0; Object.values(byDay).forEach(c=>xp+=Math.min(c,5)*5);          // +5/log, capped 25/day
+  Object.values(S.pledges).forEach(pl=>{ xp+= pl.status==="done"?30:10; }); // pledge 10, done +20
+  p.xp=xp;
+  const days=new Set(S.logs.map(l=>l.dateISO));
+  let streak=0, d=new Date();
+  if(!days.has(todayISO(d))) d.setDate(d.getDate()-1);   // forgiving: today optional
+  while(days.has(todayISO(d))){ streak++; d.setDate(d.getDate()-1); }
+  p.streak=streak; p.best=Math.max(p.best||0, streak);
+  p.lastLog = S.logs.length ? [...days].sort().pop() : null;
+  if(S.logs.length) award("first_log");
+  if(new Set(S.logs.map(l=>l.cat)).size>=4) award("allcats");
+  if(p.best>=7) award("week");
+  if(Object.values(S.pledges).some(pl=>pl.status==="done")) award("action1");
+  const key=monthKey(todayISO());
+  if(S.logs.length && sumKg(logsIn(key)) < p.baselineAnnualKg/12) award("under");
+}
+
+/* ---- add / remove a log ---- */
+function addLog(cat,sub,qty,unit,dateISO,demo){
+  const log={ id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),
+              cat,sub,qty,unit, kg:kgFor(cat,sub,qty), dateISO:dateISO||todayISO(), ts:Date.now() };
+  if(demo) log.demo=true;
+  S.logs.push(log); recomputeProgress(); save();
+  return log;
+}
+function removeLog(id){ S.logs=S.logs.filter(l=>l.id!==id); recomputeProgress(); save(); }
+
+/* ---- demo data (for quick demos) ---- */
+function pushDemo(cat,sub,qty,unit,iso){
+  S.logs.push({ id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),
+                cat,sub,qty,unit, kg:kgFor(cat,sub,qty), dateISO:iso, ts:Date.now(), demo:true });
+}
+function addDemoData(){
+  if(S.logs.some(l=>l.demo)) return false;            // don't double-add
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const base=new Date();
+  for(let i=74;i>=0;i--){
+    const d=new Date(base); d.setDate(d.getDate()-i); const iso=todayISO(d); const dow=d.getDay();
+    if(dow>=1&&dow<=5){ const m=pick([["train",24],["train",24],["two_wheeler",14],["car",16],["auto",6]]); pushDemo("travel",m[0],m[1],"km",iso); }
+    else if(Math.random()<0.5){ pushDemo("travel",pick(["car","auto","two_wheeler"]),8+Math.floor(Math.random()*10),"km",iso); }
+    const meals=2+(Math.random()<0.5?1:0);
+    for(let m=0;m<meals;m++) pushDemo("food",pick(["veg","veg","veg","chicken","redmeat","vegan"]),1,"meal",iso);
+    if(Math.random()<0.7) pushDemo("home","electricity",3+Math.floor(Math.random()*5),"kWh",iso);
+    if(Math.random()<0.1) pushDemo("home","lpg",0.4,"kg",iso);
+    if(Math.random()<0.06) pushDemo("shopping",pick(["clothing","phone"]),1,"item",iso);
+  }
+  const f=new Date(base); f.setDate(f.getDate()-22); pushDemo("travel","flight",1200,"km",todayISO(f));
+  recomputeProgress(); save(); return true;
+}
+function removeDemoData(){ const had=S.logs.some(l=>l.demo); S.logs=S.logs.filter(l=>!l.demo); recomputeProgress(); save(); return had; }
+
+/* ---- log list rendering ---- */
+function niceDate(iso){
+  const t=todayISO(); if(iso===t) return "Today";
+  const y=new Date(); y.setDate(y.getDate()-1); if(iso===todayISO(y)) return "Yesterday";
+  const [Y,M,D]=iso.split("-"); return new Date(Y,M-1,D).toLocaleDateString(undefined,{day:"numeric",month:"short"});
+}
+function logRow(l){
+  return `<div class="item"><span class="em" aria-hidden="true">${CATEM[l.cat]}</span>
+    <div class="body"><div class="t">${SUB[l.sub]||l.sub}</div>
+      <div class="small muted">${round(l.qty,2)} ${l.unit} · ${niceDate(l.dateISO)}${l.demo?' · demo':''}</div></div>
+    <div class="right"><div>${fmt(l.kg)}</div><button class="btn small" data-del="${l.id}" aria-label="Delete ${SUB[l.sub]||l.sub} from ${niceDate(l.dateISO)}">Delete</button></div>
+  </div>`;
+}
+function renderLogList(limit){
+  const logs=[...S.logs].sort((a,b)=> b.dateISO.localeCompare(a.dateISO) || b.ts-a.ts);
+  const shown=limit?logs.slice(0,limit):logs;
+  if(!shown.length) return `<p class="note">No activities yet. Tap <strong>＋ Log</strong> to add one — or add demo data from the <em>You</em> tab to explore with sample data.</p>`;
+  return shown.map(logRow).join("");
+}
+function deleteLog(id, after){
+  const l=S.logs.find(x=>x.id===id); if(!l) return;
+  removeLog(id); if(after) after();
+  toast("Entry removed", ()=>{ S.logs.push(l); recomputeProgress(); save(); refreshAll(); if($("#sheet").classList.contains("open")) openAllLogs(); });
+}
+function bindDelete(root){ $$("[data-del]",root).forEach(b=>b.onclick=()=>deleteLog(b.dataset.del, ()=>{ refreshAll(); if($("#sheet").classList.contains("open")) openAllLogs(); })); }
+function openAllLogs(){
+  const logs=[...S.logs].sort((a,b)=> b.dateISO.localeCompare(a.dateISO) || b.ts-a.ts);
+  const groups={}; logs.forEach(l=>{ (groups[l.dateISO]=groups[l.dateISO]||[]).push(l); });
+  const body=Object.keys(groups).sort((a,b)=>b.localeCompare(a)).map(date=>
+    `<div class="between" style="margin:.9rem 0 .1rem"><strong>${niceDate(date)}</strong><span class="small muted">${fmt(sumKg(groups[date]))}</span></div>`+
+    groups[date].map(logRow).join("")).join("");
+  openSheet(`<h2 id="sheet-h">All activity</h2><p class="small muted">${logs.length} ${logs.length===1?"entry":"entries"} stored on this device.</p>${logs.length?body:'<p class="note">Nothing logged yet.</p>'}`);
+  bindDelete($("#sheet-body"));
+}
+
+
+/* ============================================================
+   ROUTER
+   ============================================================ */
+function route(){
+  if(!S.consent) return show("welcome",false);
+  if(!S.profile.baselineAnnualKg) return show("quiz",false);
+  show(currentTab,true);
+}
+let currentTab="home";
+function show(view,bar){
+  $$(".screen").forEach(s=>s.classList.remove("active"));
+  $("#screen-"+view).classList.add("active");
+  $("#appbar").hidden=!bar;
+  document.body.classList.toggle("bare",!bar);
+  $$("#nav [data-go]").forEach(b=>b.setAttribute("aria-current", b.dataset.go===view?"page":"false"));
+  if(view==="home") renderHome();
+  if(view==="insights") renderInsights();
+  if(view==="act") renderAct();
+  if(view==="you") renderYou();
+  window.scrollTo(0,0);
+  const h=$("#screen-"+view+" h1"); if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
+}
+function go(view){ currentTab=view; show(view,true); }
+
+/* ============================================================
+   SVG charts
+   ============================================================ */
+function donut(cats){
+  const entries=Object.entries(cats).filter(([,v])=>v>0);
+  const total=entries.reduce((a,[,v])=>a+v,0)||1;
+  const C=2*Math.PI*54; let cum=0, segs="";
+  entries.forEach(([c,v])=>{ const len=v/total*C;
+    segs+=`<circle cx="64" cy="64" r="54" fill="none" stroke="${CATCOLOR[c]}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-cum).toFixed(2)}"></circle>`;
+    cum+=len; });
+  if(!entries.length) segs=`<circle cx="64" cy="64" r="54" fill="none" stroke="var(--surface-2)" stroke-width="16"></circle>`;
+  const legend=entries.map(([c,v])=>`<li><span class="swatch" style="background:${CATCOLOR[c]}"></span>${CATLABEL[c]}<span class="v">${fmt(v)}</span><span class="pct">${Math.round(v/total*100)}%</span></li>`).join("");
+  const table=`<table class="sr-only"><caption>Footprint by area</caption><tbody>${entries.map(([c,v])=>`<tr><th scope="row">${CATLABEL[c]}</th><td>${Math.round(v)} kg, ${Math.round(v/total*100)}%</td></tr>`).join("")}</tbody></table>`;
+  return `<div class="donutwrap"><svg class="donut" viewBox="0 0 128 128" role="img" aria-label="Footprint by area: ${entries.map(([c,v])=>CATLABEL[c]+" "+Math.round(v/total*100)+"%").join(", ")||"no data yet"}"><g transform="rotate(-90 64 64)">${segs}</g></svg><ul class="legend">${legend||'<li class="muted">No data yet.</li>'}</ul>${table}</div>`;
+}
+function hbars(rows,max){
+  const m=max||Math.max(...rows.map(r=>r.v),1);
+  const bars=rows.map(r=>`<div class="bar"><div class="top"><span>${r.label}</span><span>${r.note??fmt(r.v)}</span></div><div class="meter"><i style="width:${Math.max(2,r.v/m*100)}%;${r.color?`background:${r.color}`:""}"></i></div></div>`).join("");
+  const table=`<table class="sr-only"><tbody>${rows.map(r=>`<tr><th scope="row">${r.label}</th><td>${r.note??Math.round(r.v)+" kg"}</td></tr>`).join("")}</tbody></table>`;
+  return `<div class="bars">${bars}</div>${table}`;
+}
+function trend(keys){
+  const vals=keys.map(k=>({k,v:sumKg(logsIn(k))}));
+  const max=Math.max(...vals.map(v=>v.v),1);
+  const w=100/keys.length;
+  const bars=vals.map((v,i)=>{ const h=Math.max(2,v.v/max*78);
+    return `<g><rect x="${i*w+w*0.2}" y="${88-h}" width="${w*0.6}" height="${h}" rx="2" fill="var(--primary)"></rect>`+
+           `<text x="${i*w+w*0.5}" y="98" text-anchor="middle" font-size="5" fill="var(--ink-2)">${monthLabel(v.k)}</text></g>`; }).join("");
+  const table=`<table class="sr-only"><caption>Monthly footprint</caption><tbody>${vals.map(v=>`<tr><th scope="row">${monthLabel(v.k)}</th><td>${Math.round(v.v)} kg</td></tr>`).join("")}</tbody></table>`;
+  return `<svg viewBox="0 0 100 100" role="img" aria-label="Footprint over the last ${keys.length} months" style="width:100%;height:160px">${bars}</svg>${table}`;
+}
+
+/* ============================================================
+   SCREENS
+   ============================================================ */
+function renderHome(){
+  const key=monthKey(todayISO()), f=monthFigure(key);
+  const prevKey=lastMonths(2)[0], prev=logsIn(prevKey);
+  const ref = prev.length ? sumKg(prev) : S.profile.baselineAnnualKg/12;
+  const refLabel = prev.length ? "last month" : "your start";
+  const diff = ref ? (f.kg-ref)/ref*100 : 0;
+  const dCls = !ref||Math.abs(diff)<1 ? "flat" : diff<0?"down":"up";
+  const dTxt = !ref||Math.abs(diff)<1 ? "about the same" : `${diff<0?"▼":"▲"} ${Math.abs(Math.round(diff))}% vs ${refLabel}`;
+  const eq=equiv(f.kg);
+  const lv=levelOf(S.profile.xp);
+  const top=topActions()[0];
+  const overTarget=f.kg>BM.target;
+  const fillPct=Math.min(100, f.kg/Math.max(BM.target,1)*100);
+
+  $("#home-dynamic").innerHTML = `
+    <div class="card hero">
+      <div class="between"><span class="label">This month${f.est?" · estimated":""}</span>
+        <span class="delta ${dCls}">${dTxt}</span></div>
+      <div class="num">${Math.round(f.kg)} <small>kg CO₂e</small></div>
+      <div class="equiv">≈ ${eq.km.toLocaleString()} km of car travel · ${eq.petrol} litres of petrol</div>
+      <div class="budget">
+        <div class="track"><div class="fill ${overTarget?"over":""}" style="width:${fillPct}%"></div>
+          <div class="mark" style="left:100%"></div></div>
+        <div class="small muted" style="margin-top:.3rem">Personal 1.5°C target ≈ ${Math.round(BM.target)} kg/month${overTarget?" — you're above it, small swaps help":" — you're within it, nice"}</div>
+      </div>
+      ${f.est?`<p class="note" style="margin-top:.7rem">Estimated from your setup answers. Log a few activities to track the real figure.</p>`:""}
+    </div>
+
+    <div class="card">
+      <div class="between" style="margin-bottom:.6rem"><h2>Where it comes from</h2>
+        <button class="btn small" data-go="insights">Details</button></div>
+      ${donut(f.cats)}
+    </div>
+
+    <div class="card">
+      <div class="between" style="margin-bottom:.4rem"><h2>Recent activity</h2>
+        ${S.logs.length>5?`<button class="btn small" id="see-all-logs">See all (${S.logs.length})</button>`:""}</div>
+      ${renderLogList(5)}
+      ${!S.logs.length?`<button class="btn block" id="home-demo" style="margin-top:.6rem">Add demo data</button>`:""}
+    </div>
+
+    <div class="card between" style="gap:1rem">
+      <div><div class="small muted">Level</div><strong>${lv[1]}</strong></div>
+      <div style="text-align:center"><div class="small muted">Streak</div><strong>${S.profile.streak} 🔥</strong></div>
+      <div style="text-align:right"><div class="small muted">Points</div><strong>${S.profile.xp}</strong></div>
+    </div>
+
+    ${top?`<div class="card">
+      <div class="small muted" style="font-weight:700;margin-bottom:.3rem">Your best next move</div>
+      <div class="between" style="gap:.8rem;align-items:flex-start">
+        <div><div style="font-weight:700">${top.title}</div>
+          <div class="small" style="margin-top:.3rem"><span class="pill ${top.cat}">${CATEM[top.cat]} ${CATLABEL[top.cat]}</span>
+          <span class="pill ${top.effort}">${cap(top.effort)}</span>
+          <span class="muted"> saves ~${fmt(top.save)}/yr</span></div></div>
+        <button class="btn primary small" data-pledge="${top.id}">${S.pledges[top.id]?"Pledged":"Pledge"}</button>
+      </div></div>`:""}
+
+    <div class="card">
+      <details><summary>Why focus on the big things?</summary>
+        <p class="small">The largest cuts almost always come from four levers: how you travel, how often you fly, what you eat, and how you power your home. Tread surfaces yours first so small daily logs add up to a real change — without the guilt.</p>
+      </details>
+    </div>`;
+  bindGo($("#home-dynamic")); bindPledge($("#home-dynamic")); bindDelete($("#home-dynamic"));
+  const sa=$("#see-all-logs"); if(sa) sa.onclick=openAllLogs;
+  const hd=$("#home-demo"); if(hd) hd.onclick=()=>{ addDemoData(); refreshAll(); toast("Demo data added."); };
+}
+
+function renderInsights(){
+  const keys=lastMonths(6), key=keys[keys.length-1], f=monthFigure(key);
+  const subTotals={}; logsIn(key).forEach(l=>{ const k=l.cat+"|"+l.sub; subTotals[k]=(subTotals[k]||0)+l.kg; });
+  const contributors=Object.entries(subTotals).sort((a,b)=>b[1]-a[1]).slice(0,5)
+    .map(([k,v])=>({label:SUB[k.split("|")[1]]||k, v, color:CATCOLOR[k.split("|")[0]]}));
+  const prevKey=keys[keys.length-2], prev=logsIn(prevKey);
+  const ref = prev.length ? sumKg(prev) : S.profile.baselineAnnualKg/12;
+  const cmp=[
+    {label:"This month", v:f.kg, note:fmt(f.kg), color:"var(--primary)"},
+    {label: prev.length?"Last month":"Your start", v:ref, note:fmt(ref), color:"var(--accent)"},
+    {label:"India average", v:BM.india, note:fmt(BM.india)},
+    {label:"1.5°C target", v:BM.target, note:fmt(BM.target)},
+  ];
+  const cmpMax=Math.max(f.kg,ref,BM.india,BM.target);
+  const changed=whatChanged(key,prevKey,prev.length>0);
+  const hasData=S.logs.length>0;
+
+  $("#insights-dynamic").innerHTML = `
+    <div class="card">
+      <h2 style="margin-bottom:.5rem">Last 6 months</h2>
+      ${hasData?trend(keys):`<p class="note">Your trend appears here once you've logged across a couple of months. Keep going — even a few logs a week is enough.</p>`}
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:.5rem">Top contributors${f.est?" · estimated":""}</h2>
+      ${contributors.length?hbars(contributors):`<p class="note">Log a few activities to see exactly what's driving your footprint.</p>`}
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:.5rem">How you compare</h2>
+      ${hbars(cmp,cmpMax)}
+      <p class="small muted" style="margin-top:.4rem">Your past self is the comparison that matters most. Benchmarks are rough averages, shown for context.</p>
+    </div>
+    ${changed?`<div class="card"><h2 style="margin-bottom:.3rem">What changed</h2><p class="small">${changed}</p></div>`:""}`;
+}
+
+function renderAct(){
+  const lv=levelOf(S.profile.xp), nx=nextLevel(S.profile.xp);
+  const mine=Object.keys(S.pledges).map(id=>ACTIONS.find(a=>a.id===id)).filter(Boolean);
+  const suggestions=topActions().filter(a=>!S.pledges[a.id]||S.pledges[a.id].status!=="done").slice(0,5);
+
+  $("#act-dynamic").innerHTML = `
+    <div class="card">
+      <div class="between"><div><div class="small muted">Level</div><strong style="font-size:1.1rem">${lv[1]}</strong></div>
+        <div style="text-align:right"><div class="small muted">Points</div><strong style="font-size:1.1rem">${S.profile.xp}</strong></div></div>
+      ${nx?`<div class="track" style="margin-top:.6rem"><div class="fill" style="width:${Math.round((S.profile.xp-lv[0])/(nx[0]-lv[0])*100)}%"></div></div>
+      <div class="small muted" style="margin-top:.3rem">${nx[0]-S.profile.xp} points to ${nx[1]}</div>`:`<p class="small muted" style="margin-top:.5rem">Top level reached — keep it up!</p>`}
+    </div>
+
+    ${mine.length?`<div class="card"><h2 style="margin-bottom:.5rem">Your pledges</h2>
+      ${mine.map(a=>{ const done=S.pledges[a.id].status==="done"; return `<div class="item">
+        <span class="em">${done?"✅":"◻️"}</span>
+        <div class="body"><div class="t">${a.title}</div>
+          <div class="small"><span class="pill ${a.cat}">${CATLABEL[a.cat]}</span> <span class="muted">~${fmt(a.save)}/yr</span></div></div>
+        <div class="right">${done?'<span class="small muted">Done</span>':`<button class="btn small primary" data-done="${a.id}">Mark done</button>`}</div>
+      </div>`;}).join("")}</div>`:""}
+
+    <div class="card">
+      <h2 style="margin-bottom:.2rem">Suggested for you</h2>
+      <p class="small muted" style="margin-bottom:.4rem">Ranked by impact on your biggest areas. One easy win is always near the top.</p>
+      ${suggestions.map(a=>`<div class="item"><span class="em">${CATEM[a.cat]}</span>
+        <div class="body"><div class="t">${a.title}</div>
+          <div class="small" style="margin:.25rem 0"><span class="pill ${a.cat}">${CATLABEL[a.cat]}</span> <span class="pill ${a.effort}">${cap(a.effort)}</span> <span class="muted">saves ~${fmt(a.save)}/yr</span></div>
+          <div class="small muted">${a.why}</div></div>
+        <div class="right"><button class="btn small ${S.pledges[a.id]?"":"primary"}" data-pledge="${a.id}">${S.pledges[a.id]?"Pledged":"Pledge"}</button></div>
+      </div>`).join("")}
+    </div>
+
+    <div class="card"><h2 style="margin-bottom:.6rem">Badges</h2>
+      <div class="badges">${Object.entries(BADGES).map(([id,[em,name]])=>`<div class="bg ${S.badges[id]?"on":""}"><span class="em">${em}</span>${name}</div>`).join("")}</div>
+    </div>`;
+  bindPledge($("#act-dynamic"));
+  $$("#act-dynamic [data-done]").forEach(b=>b.onclick=()=>{ S.pledges[b.dataset.done].status="done"; recomputeProgress(); save(); live("Action completed. Nice."); renderAct(); });
+}
+
+function renderYou(){
+  const p=S.profile, lv=levelOf(p.xp), st=S.settings;
+  const annual=Math.round(p.baselineAnnualKg);
+  $("#you-dynamic").innerHTML = `
+    <div class="card between">
+      <div><div class="small muted">Level ${lv[1]} · ${p.xp} points · ${p.best}-day best streak</div>
+        <strong>On this device since ${new Date(p.createdAt).toLocaleDateString()}</strong></div>
+    </div>
+
+    <div class="card stack">
+      <h2>🛡 Privacy &amp; your data</h2>
+      <p class="small">Your data is stored only in this browser. No account, no server, nothing sent anywhere.</p>
+      <button class="btn block" id="export">Export my data (JSON)</button>
+      <button class="btn block" id="viewdata">View what's stored</button>
+      <div class="small muted">Consent given ${S.consent?new Date(S.consent.ts).toLocaleDateString():"—"} · <button class="btn small" id="withdraw">Withdraw consent</button></div>
+      <button class="btn block danger" id="wipe">Delete everything</button>
+    </div>
+
+    <div class="card stack">
+      <h2>♿ Accessibility</h2>
+      <div class="field"><label for="set-size">Text size</label>
+        <select id="set-size">
+          <option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option><option value="xl">Extra large</option>
+        </select></div>
+      <label class="rowflex" style="justify-content:space-between"><span>High contrast</span>
+        <input type="checkbox" id="set-hc" style="width:22px;height:22px"></label>
+      <label class="rowflex" style="justify-content:space-between"><span>Reduce motion</span>
+        <input type="checkbox" id="set-rm" style="width:22px;height:22px"></label>
+      <p class="small muted">Reduce motion follows your device setting by default.</p>
+    </div>
+
+    <div class="card stack">
+      <h2>📂 Your starting estimate</h2>
+      <p class="small">From your setup: about <strong>${fmt(annual)}/year</strong> — that's what roughly ${Math.max(1,Math.round(annual/21))} trees soak up in a year.</p>
+      <button class="btn block" id="redo">Redo setup quiz</button>
+    </div>
+
+    <div class="card stack">
+      <h2>🧪 Demo &amp; testing</h2>
+      <p class="small">Fill the app with about two months of realistic sample activity to see the charts, trends, contributors and streak in action. Clearly marked as demo, and removable in one tap.</p>
+      <button class="btn block" id="demo-add">Add demo data</button>
+      <button class="btn block" id="demo-clear">Remove demo data</button>
+    </div>
+
+    <div class="card">
+      <details><summary>About &amp; how the numbers work</summary>
+        <div class="small">
+          <p>Tread estimates emissions as <em>activity × emission factor</em>, using India-first averages (electricity ≈ 0.71 kg CO₂e/kWh, LPG ≈ 2.98 kg/kg, rail ≈ 0.04 kg/km, car ≈ 0.17 kg/km, a red-meat meal ≈ 3.5 kg). Flights include a multiplier for their extra high-altitude warming.</p>
+          <p><strong>These are estimates.</strong> Real-world emissions vary widely — use the trend and the relative sizes, not the exact decimals.</p>
+          <p>Sources include the CEA CO₂ baseline for India's grid, Poore &amp; Nemecek (2018) for food, and standard per-km transport factors. Built as a privacy-first PWA: it works offline and keeps your data on your device.</p>
+        </div>
+      </details>
+    </div>
+    <p class="small muted" style="text-align:center;margin-bottom:1rem">Tread · a calmer way to tread lightly</p>`;
+
+  // bind settings
+  $("#set-size").value=st.textSize; $("#set-hc").checked=st.hc; $("#set-rm").checked = st.rm===true;
+  $("#set-size").onchange=e=>{ st.textSize=e.target.value; applySettings(); save(); };
+  $("#set-hc").onchange=e=>{ st.hc=e.target.checked; applySettings(); save(); };
+  $("#set-rm").onchange=e=>{ st.rm=e.target.checked; applySettings(); save(); };
+  $("#export").onclick=exportData;
+  $("#viewdata").onclick=()=>openSheet(`<h2 id="sheet-h">What's stored on this device</h2><p class="small muted">This is everything Tread keeps — nothing else exists elsewhere.</p><pre class="small" style="white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:.8rem;max-height:50dvh;overflow:auto">${escapeHtml(JSON.stringify(S,null,2))}</pre>`);
+  $("#withdraw").onclick=()=>confirmSheet("Withdraw consent?","This stops processing and erases everything stored on this device.","Withdraw &amp; erase",wipeAll);
+  $("#wipe").onclick=()=>confirmSheet("Delete everything?","This permanently erases all your data on this device. It can't be undone.","Delete everything",wipeAll);
+  $("#redo").onclick=()=>{ S.profile.baselineAnnualKg=0; save(); route(); };
+  $("#demo-add").onclick=()=>{ const added=addDemoData(); renderYou(); toast(added?"Demo data added — open Home or Insights.":"Demo data is already loaded."); };
+  $("#demo-clear").onclick=()=>{ const had=removeDemoData(); renderYou(); toast(had?"Demo data removed.":"No demo data to remove."); };
+}
+
+/* ---- helpers used by screens ---- */
+function topActions(){
+  const cats=monthFigure(monthKey(todayISO())).cats;
+  const topCat=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  return [...ACTIONS].sort((a,b)=>{
+    const rel=(a.cat===topCat?1e6:0)-(b.cat===topCat?1e6:0);
+    return rel || b.save-a.save;
+  });
+}
+function whatChanged(key,prevKey,hasPrev){
+  if(!hasPrev) return "";
+  const now=byCat(logsIn(key)), was=byCat(logsIn(prevKey));
+  let best=null;
+  for(const c in now){ const d=now[c]-was[c]; if(best===null||Math.abs(d)>Math.abs(best.d)) best={c,d}; }
+  if(!best||Math.abs(best.d)<1) return "Your footprint held steady across areas this month.";
+  return `${CATLABEL[best.c]} is ${best.d<0?"down":"up"} ${fmt(Math.abs(best.d))} versus last month${best.d<0?" — keep it going.":". A small swap here would help most."}`;
+}
+const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function bindGo(root){ $$("[data-go]",root).forEach(b=>b.onclick=()=>go(b.dataset.go)); }
+function bindPledge(root){ $$("[data-pledge]",root).forEach(b=>b.onclick=()=>{
+  const id=b.dataset.pledge;
+  if(!S.pledges[id]){ S.pledges[id]={status:"active",ts:Date.now()}; recomputeProgress(); save(); live("Pledge added to your list."); }
+  if(currentTab==="act") renderAct(); else if(currentTab==="home") renderHome();
+}); }
+
+/* ============================================================
+   LOG SHEET
+   ============================================================ */
+function openLog(){
+  openSheet(`
+    <h2 id="sheet-h">Log activity</h2>
+    <p class="small muted">Tap a common one, or open detailed entry. Works fully offline.</p>
+    <div class="quickgrid" id="quicks">
+      ${PRESETS.map((p,i)=>`<button class="quick" data-i="${i}"><span class="em">${p.em}</span>${p.label}</button>`).join("")}
+    </div>
+    <button class="btn block" id="detailed" style="margin-top:.8rem">Detailed entry…</button>
+  `);
+  $$("#quicks .quick").forEach(b=>b.onclick=()=>{ const p=PRESETS[+b.dataset.i]; const log=addLog(p.cat,p.sub,p.qty,p.unit);
+    closeSheet(); refreshAll(); toast(`+${fmt(log.kg)} · ${p.label} (${round(p.qty,2)} ${p.unit})`, ()=>{ removeLog(log.id); refreshAll(); }); });
+  $("#detailed").onclick=()=>openDetailed();
+}
+function openDetailed(cat="travel"){
+  if(!["travel","food","home","shopping"].includes(cat)) cat="travel";
+  const fields={
+    travel:`<div class="field"><label for="d-sub">Mode</label><select id="d-sub">
+      ${["car","two_wheeler","auto","bus","train","flight","walk"].map(s=>`<option value="${s}">${SUB[s]}</option>`).join("")}</select></div>
+      <div class="field"><label for="d-qty">Distance (km)</label><input type="number" id="d-qty" min="0" step="1" value="10" inputmode="decimal"></div>`,
+    food:`<div class="field"><label for="d-sub">Meal</label><select id="d-sub">
+      ${["veg","vegan","chicken","fish","redmeat"].map(s=>`<option value="${s}">${SUB[s]}</option>`).join("")}</select></div>
+      <div class="field"><label for="d-qty">How many</label><input type="number" id="d-qty" min="1" step="1" value="1" inputmode="numeric"></div>`,
+    home:`<div class="field"><label for="d-sub">Type</label><select id="d-sub">
+      <option value="electricity">Electricity (kWh)</option><option value="lpg">Cooking gas (kg)</option></select></div>
+      <div class="field"><label for="d-qty">Amount</label><input type="number" id="d-qty" min="0" step="0.5" value="5" inputmode="decimal"></div>`,
+    shopping:`<div class="field"><label for="d-sub">Item</label><select id="d-sub">
+      ${["clothing","phone","laptop"].map(s=>`<option value="${s}">${SUB[s]}</option>`).join("")}</select></div>
+      <div class="field"><label for="d-qty">How many</label><input type="number" id="d-qty" min="1" step="1" value="1" inputmode="numeric"></div>`
+  };
+  openSheet(`
+    <h2 id="sheet-h">Detailed entry</h2>
+    <div class="opts" id="catpick" style="margin:.4rem 0 .8rem">
+      ${["travel","food","home","shopping"].map(c=>`<button type="button" class="opt" data-c="${c}" aria-pressed="${c===cat}"><span class="em">${CATEM[c]}</span>${CATLABEL[c]}</button>`).join("")}
+    </div>
+    <div id="dfields">${fields[cat]}</div>
+    <p class="small muted" id="dprev" aria-live="polite" style="min-height:1.4em"></p>
+    <button class="btn primary block" id="dsave">Add to today</button>
+  `);
+  $$("#catpick .opt").forEach(b=>b.onclick=()=>openDetailed(b.dataset.c));
+  const unitFor=(c,s)=> c==="travel"?"km" : c==="food"?"meal" : c==="home"?(s==="electricity"?"kWh":"kg") : "item";
+  function prev(){ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value)||0; $("#dprev").textContent=`= ${fmt(kgFor(cat,s,q))} CO₂e`; }
+  $("#d-sub").onchange=prev; $("#d-qty").oninput=prev; prev();
+  $("#dsave").onclick=()=>{ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value);
+    if(!(q>0)){ $("#dprev").innerHTML='<span class="err">Enter an amount above zero.</span>'; return; }
+    const log=addLog(cat,s,q,unitFor(cat,s)); closeSheet(); refreshAll(); toast(`+${fmt(log.kg)} · ${SUB[s]}`, ()=>{ removeLog(log.id); refreshAll(); }); };
+}
+
+/* ---- sheet plumbing ---- */
+let lastFocus=null;
+function openSheet(html){
+  $("#sheet-body").innerHTML=html;
+  $("#backdrop").classList.add("open"); $("#sheet").classList.add("open");
+  lastFocus=document.activeElement; $("#sheet").focus();
+  document.addEventListener("keydown",escClose);
+}
+function closeSheet(){ $("#backdrop").classList.remove("open"); $("#sheet").classList.remove("open");
+  document.removeEventListener("keydown",escClose); if(lastFocus&&lastFocus.focus) lastFocus.focus(); }
+function escClose(e){ if(e.key==="Escape") closeSheet();
+  if(e.key==="Tab"){ const f=$$('#sheet button,#sheet input,#sheet select,#sheet [tabindex]').filter(x=>!x.disabled);
+    if(!f.length) return; const first=f[0],last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();} } }
+function confirmSheet(title,body,confirmLabel,fn){
+  openSheet(`<h2 id="sheet-h">${title}</h2><p>${body}</p>
+    <div class="stack"><button class="btn danger block" id="cyes">${confirmLabel}</button>
+    <button class="btn block" id="cno">Cancel</button></div>`);
+  $("#cyes").onclick=()=>{ closeSheet(); fn(); };
+  $("#cno").onclick=closeSheet;
+}
+
+/* ---- toast with undo (callback-based) ---- */
+let toastUndoFn=null, toastT=null;
+function toast(msg, undoFn){
+  $("#toast-msg").textContent=msg; toastUndoFn=undoFn||null;
+  $("#toast-undo").hidden=!undoFn; $("#toast").classList.add("show"); live(msg);
+  clearTimeout(toastT); toastT=setTimeout(()=>$("#toast").classList.remove("show"),5000);
+}
+$("#toast-undo").onclick=()=>{ const fn=toastUndoFn; toastUndoFn=null; $("#toast").classList.remove("show"); if(fn) fn(); };
+
+/* ---- data actions ---- */
+function exportData(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="tread-data-"+todayISO()+".json"; a.click(); URL.revokeObjectURL(a.href);
+  live("Your data was exported as a file.");
+}
+function wipeAll(){ localStorage.removeItem("tread"); S=blank(); applySettings(); currentTab="home"; route(); live("Everything was erased."); }
+
+/* ---- settings ---- */
+function applySettings(){
+  const st=S.settings;
+  document.documentElement.className=`ts-${st.textSize}${st.hc?" hc":""}${st.rm===true?" rm":""}`;
+}
+
+/* ---- refresh whatever's visible ---- */
+function refreshAll(){ if(currentTab==="home") renderHome(); else if(currentTab==="insights") renderInsights(); else if(currentTab==="act") renderAct(); else if(currentTab==="you") renderYou(); }
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+// privacy notice text (also used in welcome details)
+$("#privacy-full").innerHTML = `
+  <p><strong>Controller / contact.</strong> Tread is a personal tool with no operator backend. For questions about this build, contact the person who deployed it. You may also raise concerns with your data protection authority (in India, the Data Protection Board).</p>
+  <p><strong>What we process and why.</strong> Setup answers, activity logs, pledges, badges and settings — solely to calculate and display your footprint on this device.</p>
+  <p><strong>Where it lives.</strong> Only in this browser's local storage, on this device. It is never transmitted, sold, profiled or shared. There are no analytics, trackers or advertising.</p>
+  <p><strong>Legal basis.</strong> Your consent (GDPR Art. 6(1)(a)) and clear affirmative action under India's DPDP Act, 2023. Consent is unbundled — there is no optional processing to opt into.</p>
+  <p><strong>Your rights.</strong> Access and portability (export to JSON), correction (edit or delete any log), erasure and withdrawal of consent (one tap) — all in the <em>You</em> tab. Because data is local, these are instant.</p>
+  <p><strong>Retention.</strong> Data stays until you delete it or clear your browser. There is no server retention.</p>
+  <p><strong>Children.</strong> Tread is general-audience, asks for no identity details, and sends nothing off-device.</p>`;
+
+// consent
+$("#consent-cb").onchange=e=>$("#consent-go").disabled=!e.target.checked;
+$("#consent-go").onclick=()=>{ S.consent={given:true,version:"1.0",ts:Date.now()}; save(); route(); };
+
+// quiz interactions
+const quiz={ mode:"car", flights:0, diet:"mixed", cook:"lpg", shop:"some", km:20, bill:1500, house:3 };
+$$('#screen-quiz .opts').forEach(group=>{
+  const name=group.dataset.group;
+  $$(".opt",group).forEach(b=>b.onclick=()=>{
+    $$(".opt",group).forEach(x=>x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    quiz[name]= name==="flights" ? +b.dataset.v : b.dataset.v;
+  });
+});
+// preselect defaults visually
+function preselQuiz(){ const map={mode:"car",diet:"mixed",cook:"lpg",shop:"some",flights:"0"};
+  for(const g in map){ const grp=$(`#screen-quiz .opts[data-group="${g}"]`); const b=$(`.opt[data-v="${map[g]}"]`,grp); if(b) b.setAttribute("aria-pressed","true"); } }
+$("#q-km").oninput=e=>{ quiz.km=+e.target.value; $("#q-km-out").textContent=e.target.value+" km"; };
+function finishQuiz(useDefaults){
+  if(!useDefaults){ quiz.bill=parseFloat($("#q-bill").value)||1500; quiz.house=parseInt($("#q-house").value)||3; }
+  const src=useDefaults?{mode:"two_wheeler",flights:0,diet:"veg",cook:"lpg",shop:"some",km:20,bill:1200,house:4}:quiz;
+  const b=baselineFrom(src);
+  S.profile.baselineAnnualKg=b.total; S.profile.byCat=b.byCat; S.profile.house=b.house;
+  save(); currentTab="home"; route();
+  live(`Your starting point is about ${fmt(b.total)} a year.`);
+}
+$("#quiz-go").onclick=()=>finishQuiz(false);
+$("#quiz-skip").onclick=()=>finishQuiz(true);
+
+// nav + log
+$$("#nav [data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+$("#log-btn").onclick=openLog;
+$("#backdrop").onclick=closeSheet;
+
+// boot
+preselQuiz();
+applySettings();
+route();
+
+// service worker (offline). Wrapped so a failure never breaks the app.
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
+// offline indicator
+function net(){ document.body.classList.toggle("is-offline", !navigator.onLine); }
+addEventListener("online",net); addEventListener("offline",net); net();
+</script>
+</body>
+</html>
