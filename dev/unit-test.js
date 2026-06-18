@@ -32,7 +32,13 @@ const w = dom.window;
 const store = () => JSON.parse(w.localStorage.getItem("tread") || "null");
 const isoAgo = (n) => { const d = new w.Date(); d.setDate(d.getDate() - n); return w.todayISO(d); };
 
-setTimeout(() => {
+// Poll for the app script to finish initialising rather than guessing a fixed delay.
+function whenReady(cb, tries = 0) {
+  if (typeof w.kgFor === "function" && typeof w.recomputeProgress === "function") return cb();
+  if (tries > 300) { console.log("\n❌ app script did not initialise (w.kgFor undefined)"); process.exit(1); }
+  setTimeout(() => whenReady(cb, tries + 1), 10);
+}
+whenReady(() => {
   try {
     section("kgFor — emission-factor maths");
     ok(near(w.kgFor("food", "redmeat", 2), 7), "2 × red-meat meals = 7 kg");
@@ -88,4 +94,4 @@ setTimeout(() => {
     if (errors.length) console.log(errors.join("\n"));
     process.exit(1);
   }
-}, 250);
+});

@@ -46,7 +46,13 @@ const click = (el) => el && el.dispatchEvent(new w.MouseEvent("click", { bubbles
 const setVal = (el, v) => { el.value = v; el.dispatchEvent(new w.Event("input", { bubbles: true })); el.dispatchEvent(new w.Event("change", { bubbles: true })); };
 const store = () => JSON.parse(w.localStorage.getItem("tread") || "null");
 
-setTimeout(() => {
+// Poll for an explicit ready signal (welcome screen active) instead of a fixed delay — deterministic under CI load.
+function whenReady(cb, tries = 0) {
+  if ($("#screen-welcome") && $("#screen-welcome").classList.contains("active")) return cb();
+  if (tries > 300) { console.log("\n❌ app did not boot (no #screen-welcome.active)"); process.exit(1); }
+  setTimeout(() => whenReady(cb, tries + 1), 10);
+}
+whenReady(() => {
   try {
     section("Boot & consent");
     ok($("#screen-welcome").classList.contains("active"), "boots to the welcome/consent screen");
@@ -107,6 +113,20 @@ setTimeout(() => {
     ok(store().logs.length === before + 1, "detailed entry adds a log");
     ok(store().logs.find((l) => l.sub === "redmeat" && l.kg === 7), "computes 2 × red-meat = 7 kg");
 
+    section("Accessibility: modal focus trap, Esc, live region");
+    click($("#log-btn")); click($("#detailed"));
+    ok($("#sheet").classList.contains("open"), "detailed-entry sheet opens as a dialog");
+    const f = $$('#sheet button,#sheet input,#sheet select,#sheet [tabindex]').filter((x) => !x.disabled);
+    ok(f.length > 1, "sheet exposes multiple focusable controls");
+    f[f.length - 1].focus();
+    d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    ok(d.activeElement === f[0], "Tab from the last control wraps to the first (focus trap)");
+    f[0].focus();
+    d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
+    ok(d.activeElement === f[f.length - 1], "Shift+Tab from the first control wraps to the last");
+    d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    ok(!$("#sheet").classList.contains("open"), "Esc closes the sheet");
+
     section("Act / gamification");
     click(d.querySelector('#nav [data-go="act"]'));
     click($("#act-dynamic [data-pledge]"));
@@ -122,21 +142,35 @@ setTimeout(() => {
     $("#set-hc").checked = true; $("#set-hc").dispatchEvent(new w.Event("change", { bubbles: true }));
     ok(/ts-xl/.test(d.documentElement.className) && /hc/.test(d.documentElement.className), "text-size and high-contrast apply");
 
-    section("Privacy controls");
-    click($("#export")); ok(true, "export runs without error");
-    click($("#demo-clear"));
-    ok(store().logs.filter((l) => l.demo).length === 0, "remove-demo clears demo logs");
-    click($("#wipe")); click($("#cyes"));
-    ok(w.localStorage.getItem("tread") === null, "delete-everything erases all data");
-    ok($("#screen-welcome").classList.contains("active"), "returns to welcome after erase");
+    section("Live-region announcements");
+    // live() clears #live then re-sets it on a ~30ms timer (to force re-announcement); wait for it to fire.
+    $("#live").textContent = "";
+    click(d.querySelector('#nav [data-go="home"]'));
+    click($("#log-btn")); click($("#quicks .quick"));   // quick-log → toast → live()
+    return setTimeout(() => {
+      try {
+        ok($("#live").textContent.trim().length > 0, "an action announces via the aria-live region (screen reader)");
 
-    ok(errors.length === 0, "no uncaught JS errors during the whole flow" + (errors.length ? ":\n" + errors.join("\n") : ""));
+        section("Privacy controls");
+        click($("#export")); ok(true, "export runs without error");
+        click($("#demo-clear"));
+        ok(store().logs.filter((l) => l.demo).length === 0, "remove-demo clears demo logs");
+        click($("#wipe")); click($("#cyes"));
+        ok(w.localStorage.getItem("tread") === null, "delete-everything erases all data");
+        ok($("#screen-welcome").classList.contains("active"), "returns to welcome after erase");
 
-    console.log(`\n${failed === 0 ? "✅ PASS" : "❌ FAIL"} — ${passed} passed, ${failed} failed`);
-    process.exit(failed === 0 ? 0 : 1);
+        ok(errors.length === 0, "no uncaught JS errors during the whole flow" + (errors.length ? ":\n" + errors.join("\n") : ""));
+        console.log(`\n${failed === 0 ? "✅ PASS" : "❌ FAIL"} — ${passed} passed, ${failed} failed`);
+        process.exit(failed === 0 ? 0 : 1);
+      } catch (e) {
+        console.log("\n❌ Test threw (deferred):", e.message);
+        if (errors.length) console.log(errors.join("\n"));
+        process.exit(1);
+      }
+    }, 80);
   } catch (e) {
     console.log("\n❌ Test threw:", e.message);
     if (errors.length) console.log(errors.join("\n"));
     process.exit(1);
   }
-}, 250);
+});

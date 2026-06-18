@@ -1,8 +1,9 @@
 /* Tread service worker — tiny, dependency-free, offline-first.
-   Strategy: precache the whole app shell on install, then serve
-   cache-first. Because the app makes no network calls and stores
-   data locally, this is all that's needed to work fully offline. */
-const VERSION = "tread-v1";
+   The app is fully static and makes no data network calls, so the strategy is simply:
+   precache the whole app shell on install, then serve it cache-first. We deliberately do
+   NOT cache arbitrary runtime responses — the precache already covers every asset, and
+   skipping runtime caching keeps the cache bounded and behaviour predictable. */
+const VERSION = "tread-precache-v2";   // bump whenever the SHELL list or shell file contents change
 const SHELL = [
   "./",
   "./index.html",
@@ -27,22 +28,15 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // Cache-first against the precached shell. ignoreSearch so a launch URL carrying query
+  // params (e.g. "/?source=pwa") still resolves to the cached "./" shell entry.
   e.respondWith(
-    caches.match(req).then((hit) => {
+    caches.match(req, { ignoreSearch: true }).then((hit) => {
       if (hit) return hit;
-      return fetch(req)
-        .then((res) => {
-          // cache same-origin successful responses for next time
-          if (res.ok && new URL(req.url).origin === self.location.origin) {
-            const copy = res.clone();
-            caches.open(VERSION).then((c) => c.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => {
-          // offline: for page navigations, fall back to the app shell
-          if (req.mode === "navigate") return caches.match("./index.html");
-        });
+      return fetch(req).catch(() => {
+        // Offline and not precached: for page navigations, fall back to the app shell.
+        if (req.mode === "navigate") return caches.match("./index.html");
+      });
     })
   );
 });
