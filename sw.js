@@ -3,31 +3,25 @@
    precache the whole app shell on install, then serve it cache-first. We deliberately do
    NOT cache arbitrary runtime responses — the precache already covers every asset, and
    skipping runtime caching keeps the cache bounded and behaviour predictable. */
-const VERSION = "tread-precache-v2"; // bump whenever the SHELL list or shell file contents change
+const VERSION = "tread-precache-v2";   // bump whenever the SHELL list or shell file contents change
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon-64.png",
   "./icon-192.png",
-  "./icon-512.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches
-      .open(VERSION)
-      .then((c) => c.addAll(SHELL))
-      .then(() => self.skipWaiting()),
-  );
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches
-      .keys()
+    caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
   );
 });
 
@@ -43,6 +37,6 @@ self.addEventListener("fetch", (e) => {
         // Offline and not precached: for page navigations, fall back to the app shell.
         if (req.mode === "navigate") return caches.match("./index.html");
       });
-    }),
+    })
   );
 });

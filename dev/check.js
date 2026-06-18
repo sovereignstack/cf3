@@ -8,12 +8,9 @@ const { execFileSync } = require("child_process");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
-if (!m) {
-  console.error("no inline <script> found in index.html");
-  process.exit(1);
-}
+if (!m) { console.error("no inline <script> found in index.html"); process.exit(1); }
 
-const tmp = path.join(os.tmpdir(), "_tread_check.js");
+const tmp = path.join(os.tmpdir(), `_tread_check_${process.pid}.js`);   // unique per process — no concurrent-run clash
 fs.writeFileSync(tmp, m[1]);
 execFileSync(process.execPath, ["--check", tmp], { stdio: "inherit" });
 console.log("syntax OK");

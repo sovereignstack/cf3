@@ -5,11 +5,9 @@
   "description": "Dev-only tooling for Tread (smoke tests, icon generation). Not part of the deployed app.",
   "scripts": {
     "test": "node sw-test.js && node unit-test.js && node smoke-test.js",
-    "check": "node check.js",
-    "format": "node format-inline.js && prettier --write \"*.js\" ../sw.js"
+    "check": "node check.js"
   },
   "devDependencies": {
-    "jsdom": "^24.0.0",
-    "prettier": "^3.8.4"
+    "jsdom": "^24.0.0"
   }
 }

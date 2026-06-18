@@ -369,616 +369,309 @@
    Tread — single-file, offline, local-only carbon tracker.
    No network calls. All state lives in localStorage on device.
    ============================================================ */
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const live = (m) => {
-  $("#live").textContent = "";
-  setTimeout(() => ($("#live").textContent = m), 30);
-};
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const live = m => { $("#live").textContent=""; setTimeout(()=>$("#live").textContent=m,30); };
 
 /* ---- emission factors (India-first; estimates) ---- */
 const F = {
-  travel: { two_wheeler: 0.06, car: 0.17, bus: 0.1, train: 0.04, auto: 0.1, walk: 0, flight: 0.25 }, // kg/km (flight RF-inclusive)
-  food: { vegan: 0.7, veg: 1.0, fish: 1.3, chicken: 1.6, redmeat: 3.5 }, // kg/meal
-  home: { electricity: 0.71, lpg: 2.98 }, // kg/kWh, kg/kg
-  shopping: { clothing: 15, phone: 70, laptop: 300 }, // kg/item
+  travel:{ two_wheeler:.06, car:.17, bus:.10, train:.04, auto:.10, walk:0, flight:.25 }, // kg/km (flight RF-inclusive)
+  food:{ vegan:.7, veg:1.0, fish:1.3, chicken:1.6, redmeat:3.5 },                         // kg/meal
+  home:{ electricity:.71, lpg:2.98 },                                                     // kg/kWh, kg/kg
+  shopping:{ clothing:15, phone:70, laptop:300 }                                          // kg/item
 };
-const SUB = {
-  two_wheeler: "Two-wheeler",
-  car: "Car",
-  bus: "Bus",
-  train: "Train / metro",
-  auto: "Auto-rickshaw",
-  walk: "Walk / cycle",
-  flight: "Flight",
-  vegan: "Vegan meal",
-  veg: "Veg meal",
-  fish: "Fish meal",
-  chicken: "Chicken meal",
-  redmeat: "Red-meat meal",
-  electricity: "Electricity",
-  lpg: "Cooking gas (LPG)",
-  clothing: "New clothing",
-  phone: "Phone",
-  laptop: "Laptop",
-};
-const CATLABEL = { travel: "Travel", food: "Food", home: "Home", shopping: "Shopping" };
-const CATCOLOR = {
-  travel: "var(--c-travel)",
-  food: "var(--c-food)",
-  home: "var(--c-home)",
-  shopping: "var(--c-shopping)",
-};
-const CATEM = { travel: "🚆", food: "🍽", home: "💡", shopping: "🛍" };
+const SUB = { two_wheeler:"Two-wheeler",car:"Car",bus:"Bus",train:"Train / metro",auto:"Auto-rickshaw",walk:"Walk / cycle",flight:"Flight",
+  vegan:"Vegan meal",veg:"Veg meal",fish:"Fish meal",chicken:"Chicken meal",redmeat:"Red-meat meal",
+  electricity:"Electricity",lpg:"Cooking gas (LPG)",clothing:"New clothing",phone:"Phone",laptop:"Laptop" };
+const CATLABEL = {travel:"Travel",food:"Food",home:"Home",shopping:"Shopping"};
+const CATCOLOR = {travel:"var(--c-travel)",food:"var(--c-food)",home:"var(--c-home)",shopping:"var(--c-shopping)"};
+const CATEM = {travel:"🚆",food:"🍽",home:"💡",shopping:"🛍"};
 
 /* benchmarks, monthly kg per person */
-const BM = { india: 1900 / 12, target: 1500 / 12, global: 4700 / 12 };
+const BM = { india:1900/12, target:1500/12, global:4700/12 };
 
 const PRESETS = [
-  { em: "🚆", label: "Train / metro", cat: "travel", sub: "train", qty: 24, unit: "km" },
-  { em: "🛵", label: "Two-wheeler", cat: "travel", sub: "two_wheeler", qty: 15, unit: "km" },
-  { em: "🚗", label: "Car", cat: "travel", sub: "car", qty: 15, unit: "km" },
-  { em: "🛺", label: "Auto", cat: "travel", sub: "auto", qty: 6, unit: "km" },
-  { em: "🥗", label: "Veg meal", cat: "food", sub: "veg", qty: 1, unit: "meal" },
-  { em: "🍗", label: "Chicken", cat: "food", sub: "chicken", qty: 1, unit: "meal" },
-  { em: "🍖", label: "Red meat", cat: "food", sub: "redmeat", qty: 1, unit: "meal" },
-  { em: "💡", label: "Electricity", cat: "home", sub: "electricity", qty: 5, unit: "kWh" },
-  { em: "🔥", label: "Cooking gas", cat: "home", sub: "lpg", qty: 0.5, unit: "kg" },
-  { em: "🚶", label: "Walk / cycle", cat: "travel", sub: "walk", qty: 3, unit: "km" },
+  {em:"🚆",label:"Train / metro",cat:"travel",sub:"train",qty:24,unit:"km"},
+  {em:"🛵",label:"Two-wheeler",cat:"travel",sub:"two_wheeler",qty:15,unit:"km"},
+  {em:"🚗",label:"Car",cat:"travel",sub:"car",qty:15,unit:"km"},
+  {em:"🛺",label:"Auto",cat:"travel",sub:"auto",qty:6,unit:"km"},
+  {em:"🥗",label:"Veg meal",cat:"food",sub:"veg",qty:1,unit:"meal"},
+  {em:"🍗",label:"Chicken",cat:"food",sub:"chicken",qty:1,unit:"meal"},
+  {em:"🍖",label:"Red meat",cat:"food",sub:"redmeat",qty:1,unit:"meal"},
+  {em:"💡",label:"Electricity",cat:"home",sub:"electricity",qty:5,unit:"kWh"},
+  {em:"🔥",label:"Cooking gas",cat:"home",sub:"lpg",qty:.5,unit:"kg"},
+  {em:"🚶",label:"Walk / cycle",cat:"travel",sub:"walk",qty:3,unit:"km"},
 ];
 
 const ACTIONS = [
-  {
-    id: "meat1",
-    cat: "food",
-    effort: "challenging",
-    save: 450,
-    title: "Cut red meat to once a week",
-    why: "Red meat is the most carbon-intensive food by far. A few swaps a week move the needle more than almost anything else.",
-  },
-  {
-    id: "meatfree",
-    cat: "food",
-    effort: "easy",
-    save: 200,
-    title: "Go meat-free one day a week",
-    why: "A single repeatable veg day is an easy, lasting win.",
-  },
-  {
-    id: "train",
-    cat: "travel",
-    effort: "medium",
-    save: 300,
-    title: "Swap two car trips for train or metro",
-    why: "Rail emits a fraction of car travel per kilometre.",
-  },
-  {
-    id: "flight",
-    cat: "travel",
-    effort: "challenging",
-    save: 500,
-    title: "Skip one short-haul flight this year",
-    why: "One flight can outweigh months of careful daily choices.",
-  },
-  {
-    id: "ac",
-    cat: "home",
-    effort: "easy",
-    save: 120,
-    title: "Set the AC to 26°C",
-    why: "Every degree higher cuts cooling energy — and the bill.",
-  },
-  {
-    id: "led",
-    cat: "home",
-    effort: "easy",
-    save: 60,
-    title: "Switch remaining bulbs to LED",
-    why: "LEDs use about 80% less power for the same light.",
-  },
-  {
-    id: "standby",
-    cat: "home",
-    effort: "easy",
-    save: 40,
-    title: "Switch off standby power",
-    why: "Idle devices quietly draw power around the clock.",
-  },
-  {
-    id: "clothes",
-    cat: "shopping",
-    effort: "medium",
-    save: 60,
-    title: "Buy one fewer new garment this month",
-    why: "Every new garment carries hidden manufacturing emissions.",
-  },
+  {id:"meat1",cat:"food",effort:"challenging",save:450,title:"Cut red meat to once a week",why:"Red meat is the most carbon-intensive food by far. A few swaps a week move the needle more than almost anything else."},
+  {id:"meatfree",cat:"food",effort:"easy",save:200,title:"Go meat-free one day a week",why:"A single repeatable veg day is an easy, lasting win."},
+  {id:"train",cat:"travel",effort:"medium",save:300,title:"Swap two car trips for train or metro",why:"Rail emits a fraction of car travel per kilometre."},
+  {id:"flight",cat:"travel",effort:"challenging",save:500,title:"Skip one short-haul flight this year",why:"One flight can outweigh months of careful daily choices."},
+  {id:"ac",cat:"home",effort:"easy",save:120,title:"Set the AC to 26°C",why:"Every degree higher cuts cooling energy — and the bill."},
+  {id:"led",cat:"home",effort:"easy",save:60,title:"Switch remaining bulbs to LED",why:"LEDs use about 80% less power for the same light."},
+  {id:"standby",cat:"home",effort:"easy",save:40,title:"Switch off standby power",why:"Idle devices quietly draw power around the clock."},
+  {id:"clothes",cat:"shopping",effort:"medium",save:60,title:"Buy one fewer new garment this month",why:"Every new garment carries hidden manufacturing emissions."},
 ];
 
-const LEVELS = [
-  [0, "Seedling"],
-  [250, "Sprout"],
-  [750, "Sapling"],
-  [1500, "Grove"],
-  [2500, "Canopy"],
-];
-const BADGES = {
-  first_log: ["📝", "First activity"],
-  week: ["🔥", "7-day streak"],
-  action1: ["✅", "First action done"],
-  allcats: ["🧭", "All four areas"],
-  under: ["🌍", "Below your start"],
-};
+const LEVELS = [ [0,"Seedling"],[250,"Sprout"],[750,"Sapling"],[1500,"Grove"],[2500,"Canopy"] ];
+const BADGES = { first_log:["📝","First activity"], week:["🔥","7-day streak"], action1:["✅","First action done"], allcats:["🧭","All four areas"], under:["🌍","Below your start"] };
 
 /* ---- storage (one object) ---- */
 const blank = () => ({
-  consent: null,
-  profile: {
-    createdAt: todayISO(),
-    baselineAnnualKg: 0,
-    byCat: { travel: 0, food: 0, home: 0, shopping: 0 },
-    house: 3,
-    xp: 0,
-    streak: 0,
-    best: 0,
-    lastLog: null,
-  },
-  logs: [],
-  pledges: {},
-  badges: {},
-  settings: { textSize: "m", hc: false, rm: "system", region: "IN" },
+  consent:null,
+  profile:{ createdAt:todayISO(), baselineAnnualKg:0, byCat:{travel:0,food:0,home:0,shopping:0}, house:3,
+            xp:0, streak:0, best:0, lastLog:null },
+  logs:[], pledges:{}, badges:{},
+  settings:{ textSize:"m", hc:false, rm:"system", region:"IN" }
 });
 let S = load();
-function load() {
-  try {
-    const r = localStorage.getItem("tread");
-    return r ? JSON.parse(r) : blank();
-  } catch (e) {
-    return blank();
-  }
-}
-function save() {
-  try {
-    localStorage.setItem("tread", JSON.stringify(S));
-  } catch (e) {
-    live("Couldn't save — storage may be full or blocked.");
-  }
-}
+function load(){ try{ const r=localStorage.getItem("tread"); return r?JSON.parse(r):blank(); }catch(e){ return blank(); } }
+function save(){ try{ localStorage.setItem("tread", JSON.stringify(S)); }catch(e){ live("Couldn't save — storage may be full or blocked."); } }
 
 /* ---- date helpers (local) ---- */
-function todayISO(d = new Date()) {
-  return (
-    d.getFullYear() +
-    "-" +
-    String(d.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(d.getDate()).padStart(2, "0")
-  );
-}
-const monthKey = (iso) => iso.slice(0, 7);
-function monthLabel(key) {
-  const [y, m] = key.split("-");
-  return new Date(y, m - 1, 1).toLocaleString(undefined, { month: "short" });
-}
-function lastMonths(n) {
-  const out = [],
-    d = new Date();
-  for (let i = 0; i < n; i++) {
-    out.unshift(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
-    d.setMonth(d.getMonth() - 1);
-  }
-  return out;
-}
+function todayISO(d=new Date()){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+const monthKey = iso => iso.slice(0,7);
+function monthLabel(key){ const [y,m]=key.split("-"); return new Date(y,m-1,1).toLocaleString(undefined,{month:"short"}); }
+function lastMonths(n){ const out=[],d=new Date(); for(let i=0;i<n;i++){ out.unshift(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")); d.setMonth(d.getMonth()-1);} return out; }
 
 /* ---- engine ---- */
-function kgFor(cat, sub, qty) {
-  return (F[cat]?.[sub] || 0) * qty;
-}
-function logsIn(key) {
-  return S.logs.filter((l) => monthKey(l.dateISO) === key);
-}
-function sumKg(arr) {
-  return arr.reduce((a, l) => a + l.kg, 0);
-}
-function byCat(arr) {
-  const o = { travel: 0, food: 0, home: 0, shopping: 0 };
-  arr.forEach((l) => (o[l.cat] += l.kg));
-  return o;
-}
-function equiv(kg) {
-  return { km: Math.round(kg / 0.17), petrol: Math.round(kg / 2.31) };
-}
-const round = (n, d = 0) => {
-  const f = 10 ** d;
-  return Math.round(n * f) / f;
-};
-const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(+n) ? +n : lo)); // guard parsed numeric inputs
-function fmt(kg) {
-  return kg >= 1000 ? round(kg / 1000, 2) + " t" : Math.round(kg) + " kg";
-}
+function kgFor(cat,sub,qty){ return (F[cat]?.[sub]||0)*qty; }
+function logsIn(key){ return S.logs.filter(l=>monthKey(l.dateISO)===key); }
+function sumKg(arr){ return arr.reduce((a,l)=>a+l.kg,0); }
+function byCat(arr){ const o={travel:0,food:0,home:0,shopping:0}; arr.forEach(l=>o[l.cat]+=l.kg); return o; }
+function equiv(kg){ return { km: Math.round(kg/0.17), petrol: Math.round(kg/2.31) }; }
+const round = (n,d=0)=>{ const f=10**d; return Math.round(n*f)/f; };
+const clamp = (n,lo,hi)=> Math.min(hi, Math.max(lo, Number.isFinite(+n)?+n:lo));   // guard parsed numeric inputs
+function fmt(kg){ return kg>=1000 ? round(kg/1000,2)+" t" : Math.round(kg)+" kg"; }
 
 /* current-month figure: real logs if any, else baseline estimate */
-function monthFigure(key) {
-  const ls = logsIn(key);
-  if (ls.length) return { kg: sumKg(ls), cats: byCat(ls), est: false };
-  const b = S.profile;
-  const cats = {};
-  for (const c in b.byCat) cats[c] = b.byCat[c] / 12;
-  return { kg: b.baselineAnnualKg / 12, cats, est: true };
+function monthFigure(key){
+  const ls=logsIn(key);
+  if(ls.length) return { kg:sumKg(ls), cats:byCat(ls), est:false };
+  const b=S.profile; const cats={}; for(const c in b.byCat) cats[c]=b.byCat[c]/12;
+  return { kg:b.baselineAnnualKg/12, cats, est:true };
 }
 
 /* ---- baseline from quiz ----
    Named constants for the annual-estimate model (India-calibrated; see CLAUDE.md / in-app About). */
 const DAYS_PER_YEAR = 365;
 const MEALS_PER_DAY = 3;
-const DIET_MEAL_FACTOR = { vegan: 0.7, veg: 1.0, mixed: 1.4, meat: 3.0 }; // CO₂e multiplier per meal vs a veg baseline
-const FLIGHT_ANNUAL_KG = { 0: 0, 1: 560, 2: 2000 }; // est. annual flight CO₂e: none / occasional / frequent flyer
-const ELEC_TARIFF_PER_KWH = 8; // ₹/kWh — converts a monthly ₹ bill into kWh
-const DEFAULT_MONTHLY_BILL = 1500; // ₹/month fallback electricity bill
-const LPG_CYLINDER_KG = 14.2; // kg per domestic LPG cylinder (~1 used/month)
-const SHOPPING_ANNUAL_KG = { rare: 80, some: 200, often: 450 }; // est. annual goods CO₂e by shopping habit
-function baselineFrom(a) {
-  const km = clamp(a.km, 0, 2000),
-    mode = a.mode || "car",
-    house = clamp(a.house || 3, 1, 50);
-  let travel = km * DAYS_PER_YEAR * (F.travel[mode] ?? F.travel.car);
+const DIET_MEAL_FACTOR = { vegan:.7, veg:1.0, mixed:1.4, meat:3.0 };  // CO₂e multiplier per meal vs a veg baseline
+const FLIGHT_ANNUAL_KG = { 0:0, 1:560, 2:2000 };                      // est. annual flight CO₂e: none / occasional / frequent flyer
+const ELEC_TARIFF_PER_KWH = 8;                                        // ₹/kWh — converts a monthly ₹ bill into kWh
+const DEFAULT_MONTHLY_BILL = 1500;                                    // ₹/month fallback electricity bill
+const LPG_CYLINDER_KG = 14.2;                                         // kg per domestic LPG cylinder (~1 used/month)
+const SHOPPING_ANNUAL_KG = { rare:80, some:200, often:450 };          // est. annual goods CO₂e by shopping habit
+function baselineFrom(a){
+  const km = clamp(a.km,0,2000), mode=a.mode||"car", house=clamp(a.house||3,1,50);
+  let travel = km*DAYS_PER_YEAR*(F.travel[mode]??F.travel.car);
   travel += FLIGHT_ANNUAL_KG[a.flights] || 0;
-  const food =
-    MEALS_PER_DAY * DAYS_PER_YEAR * (DIET_MEAL_FACTOR[a.diet || "mixed"] ?? DIET_MEAL_FACTOR.mixed);
-  const kwhMo = clamp(a.bill || DEFAULT_MONTHLY_BILL, 0, 1e6) / ELEC_TARIFF_PER_KWH;
-  let home = kwhMo * 12 * F.home.electricity;
-  if (a.cook === "lpg" || a.cook === "png") home += LPG_CYLINDER_KG * F.home.lpg * 12; // ~1 cylinder/month
-  home = home / house;
-  const shopping = SHOPPING_ANNUAL_KG[a.shop || "some"] ?? SHOPPING_ANNUAL_KG.some;
-  const byc = {
-    travel: round(travel),
-    food: round(food),
-    home: round(home),
-    shopping: round(shopping),
-  };
-  return { total: Object.values(byc).reduce((x, y) => x + y, 0), byCat: byc, house };
+  const food = MEALS_PER_DAY*DAYS_PER_YEAR*(DIET_MEAL_FACTOR[a.diet||"mixed"] ?? DIET_MEAL_FACTOR.mixed);
+  const kwhMo = clamp(a.bill||DEFAULT_MONTHLY_BILL,0,1e6)/ELEC_TARIFF_PER_KWH;
+  let home = kwhMo*12*F.home.electricity;
+  if(a.cook==="lpg"||a.cook==="png") home += LPG_CYLINDER_KG*F.home.lpg*12; // ~1 cylinder/month
+  home = home/house;
+  const shopping = SHOPPING_ANNUAL_KG[a.shop||"some"] ?? SHOPPING_ANNUAL_KG.some;
+  const byc={travel:round(travel),food:round(food),home:round(home),shopping:round(shopping)};
+  return { total:Object.values(byc).reduce((x,y)=>x+y,0), byCat:byc, house };
 }
 
 /* ---- gamification ---- */
-function levelOf(xp) {
-  let lv = LEVELS[0];
-  LEVELS.forEach((l) => {
-    if (xp >= l[0]) lv = l;
-  });
-  return lv;
-}
-function nextLevel(xp) {
-  return LEVELS.find((l) => l[0] > xp) || null;
-}
-function award(id) {
-  if (!S.badges[id]) {
-    S.badges[id] = todayISO();
-    live("Badge earned: " + BADGES[id][1]);
-  }
-}
+function levelOf(xp){ let lv=LEVELS[0]; LEVELS.forEach(l=>{ if(xp>=l[0]) lv=l; }); return lv; }
+function nextLevel(xp){ return LEVELS.find(l=>l[0]>xp)||null; }
+function award(id){ if(!S.badges[id]){ S.badges[id]=todayISO(); live("Badge earned: "+BADGES[id][1]); } }
 /* recompute xp / streak / badges from the full log set + pledges.
    Called after any change so add, delete and demo-fill stay consistent. */
-const XP_PER_LOG = 5; // points per logged activity...
-const XP_MAX_LOGS_PER_DAY = 5; // ...counting at most this many per day, so daily XP caps at 25
-const XP_PLEDGE = 10; // points for making a pledge
-const XP_PLEDGE_DONE = 30; // total points once a pledge is marked done
-const ALL_CATEGORIES = 4; // logging in all four categories earns the "allcats" badge
-const WEEK_STREAK_DAYS = 7; // streak length that earns the "week" badge
-function recomputeProgress() {
-  const p = S.profile;
-  const key = monthKey(todayISO());
+const XP_PER_LOG = 5;             // points per logged activity...
+const XP_MAX_LOGS_PER_DAY = 5;    // ...counting at most this many per day, so daily XP caps at 25
+const XP_PLEDGE = 10;             // points for making a pledge
+const XP_PLEDGE_DONE = 30;        // total points once a pledge is marked done
+const ALL_CATEGORIES = 4;         // logging in all four categories earns the "allcats" badge
+const WEEK_STREAK_DAYS = 7;       // streak length that earns the "week" badge
+function recomputeProgress(){
+  const p=S.profile;
+  const key=monthKey(todayISO());
   // Single pass over the logs builds everything the gamification needs (was 4+ separate passes).
-  const byDay = {},
-    days = new Set(),
-    cats = new Set();
-  let monthKg = 0;
-  for (const l of S.logs) {
-    byDay[l.dateISO] = (byDay[l.dateISO] || 0) + 1;
-    days.add(l.dateISO);
-    cats.add(l.cat);
-    if (monthKey(l.dateISO) === key) monthKg += l.kg;
+  const byDay={}, days=new Set(), cats=new Set(); let monthKg=0;
+  for(const l of S.logs){
+    byDay[l.dateISO]=(byDay[l.dateISO]||0)+1;
+    days.add(l.dateISO); cats.add(l.cat);
+    if(monthKey(l.dateISO)===key) monthKg+=l.kg;
   }
-  let xp = 0;
-  for (const c of Object.values(byDay)) xp += Math.min(c, XP_MAX_LOGS_PER_DAY) * XP_PER_LOG;
-  for (const pl of Object.values(S.pledges))
-    xp += pl.status === "done" ? XP_PLEDGE_DONE : XP_PLEDGE;
-  p.xp = xp;
-  let streak = 0,
-    d = new Date();
-  if (!days.has(todayISO(d))) d.setDate(d.getDate() - 1); // forgiving: today optional
-  while (days.has(todayISO(d))) {
-    streak++;
-    d.setDate(d.getDate() - 1);
-  }
-  p.streak = streak;
-  p.best = Math.max(p.best || 0, streak);
+  let xp=0; for(const c of Object.values(byDay)) xp+=Math.min(c,XP_MAX_LOGS_PER_DAY)*XP_PER_LOG;
+  for(const pl of Object.values(S.pledges)) xp+= pl.status==="done"?XP_PLEDGE_DONE:XP_PLEDGE;
+  p.xp=xp;
+  let streak=0, d=new Date();
+  if(!days.has(todayISO(d))) d.setDate(d.getDate()-1);   // forgiving: today optional
+  while(days.has(todayISO(d))){ streak++; d.setDate(d.getDate()-1); }
+  p.streak=streak; p.best=Math.max(p.best||0, streak);
   p.lastLog = S.logs.length ? [...days].sort().pop() : null;
-  if (S.logs.length) award("first_log");
-  if (cats.size >= ALL_CATEGORIES) award("allcats");
-  if (p.best >= WEEK_STREAK_DAYS) award("week");
-  if (Object.values(S.pledges).some((pl) => pl.status === "done")) award("action1");
-  if (S.logs.length && monthKg < p.baselineAnnualKg / 12) award("under");
+  if(S.logs.length) award("first_log");
+  if(cats.size>=ALL_CATEGORIES) award("allcats");
+  if(p.best>=WEEK_STREAK_DAYS) award("week");
+  if(Object.values(S.pledges).some(pl=>pl.status==="done")) award("action1");
+  if(S.logs.length && monthKg < p.baselineAnnualKg/12) award("under");
 }
 
 /* ---- add / remove a log ---- */
-function addLog(cat, sub, qty, unit, dateISO, demo) {
-  qty = Math.max(0, +qty || 0); // never store a negative or NaN quantity
-  const log = {
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-    cat,
-    sub,
-    qty,
-    unit,
-    kg: kgFor(cat, sub, qty),
-    dateISO: dateISO || todayISO(),
-    ts: Date.now(),
-  };
-  if (demo) log.demo = true;
-  S.logs.push(log);
-  recomputeProgress();
-  save();
+function addLog(cat,sub,qty,unit,dateISO,demo){
+  qty = Math.max(0, +qty || 0);   // never store a negative or NaN quantity
+  const log={ id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),
+              cat,sub,qty,unit, kg:kgFor(cat,sub,qty), dateISO:dateISO||todayISO(), ts:Date.now() };
+  if(demo) log.demo=true;
+  S.logs.push(log); recomputeProgress(); save();
   return log;
 }
-function removeLog(id) {
-  S.logs = S.logs.filter((l) => l.id !== id);
-  recomputeProgress();
-  save();
-}
+function removeLog(id){ S.logs=S.logs.filter(l=>l.id!==id); recomputeProgress(); save(); }
 
 /* ---- demo data (for quick demos) ---- */
-function pushDemo(cat, sub, qty, unit, iso) {
-  S.logs.push({
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-    cat,
-    sub,
-    qty,
-    unit,
-    kg: kgFor(cat, sub, qty),
-    dateISO: iso,
-    ts: Date.now(),
-    demo: true,
-  });
+function pushDemo(cat,sub,qty,unit,iso){
+  S.logs.push({ id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),
+                cat,sub,qty,unit, kg:kgFor(cat,sub,qty), dateISO:iso, ts:Date.now(), demo:true });
 }
-function addDemoData() {
-  if (S.logs.some((l) => l.demo)) return false; // don't double-add
-  const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  const base = new Date();
-  for (let i = 74; i >= 0; i--) {
-    const d = new Date(base);
-    d.setDate(d.getDate() - i);
-    const iso = todayISO(d);
-    const dow = d.getDay();
-    if (dow >= 1 && dow <= 5) {
-      const m = pick([
-        ["train", 24],
-        ["train", 24],
-        ["two_wheeler", 14],
-        ["car", 16],
-        ["auto", 6],
-      ]);
-      pushDemo("travel", m[0], m[1], "km", iso);
-    } else if (Math.random() < 0.5) {
-      pushDemo(
-        "travel",
-        pick(["car", "auto", "two_wheeler"]),
-        8 + Math.floor(Math.random() * 10),
-        "km",
-        iso,
-      );
-    }
-    const meals = 2 + (Math.random() < 0.5 ? 1 : 0);
-    for (let m = 0; m < meals; m++)
-      pushDemo("food", pick(["veg", "veg", "veg", "chicken", "redmeat", "vegan"]), 1, "meal", iso);
-    if (Math.random() < 0.7)
-      pushDemo("home", "electricity", 3 + Math.floor(Math.random() * 5), "kWh", iso);
-    if (Math.random() < 0.1) pushDemo("home", "lpg", 0.4, "kg", iso);
-    if (Math.random() < 0.06) pushDemo("shopping", pick(["clothing", "phone"]), 1, "item", iso);
+function addDemoData(){
+  if(S.logs.some(l=>l.demo)) return false;            // don't double-add
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const base=new Date();
+  for(let i=74;i>=0;i--){
+    const d=new Date(base); d.setDate(d.getDate()-i); const iso=todayISO(d); const dow=d.getDay();
+    if(dow>=1&&dow<=5){ const m=pick([["train",24],["train",24],["two_wheeler",14],["car",16],["auto",6]]); pushDemo("travel",m[0],m[1],"km",iso); }
+    else if(Math.random()<0.5){ pushDemo("travel",pick(["car","auto","two_wheeler"]),8+Math.floor(Math.random()*10),"km",iso); }
+    const meals=2+(Math.random()<0.5?1:0);
+    for(let m=0;m<meals;m++) pushDemo("food",pick(["veg","veg","veg","chicken","redmeat","vegan"]),1,"meal",iso);
+    if(Math.random()<0.7) pushDemo("home","electricity",3+Math.floor(Math.random()*5),"kWh",iso);
+    if(Math.random()<0.1) pushDemo("home","lpg",0.4,"kg",iso);
+    if(Math.random()<0.06) pushDemo("shopping",pick(["clothing","phone"]),1,"item",iso);
   }
-  const f = new Date(base);
-  f.setDate(f.getDate() - 22);
-  pushDemo("travel", "flight", 1200, "km", todayISO(f));
-  recomputeProgress();
-  save();
-  return true;
+  const f=new Date(base); f.setDate(f.getDate()-22); pushDemo("travel","flight",1200,"km",todayISO(f));
+  recomputeProgress(); save(); return true;
 }
-function removeDemoData() {
-  const had = S.logs.some((l) => l.demo);
-  S.logs = S.logs.filter((l) => !l.demo);
-  recomputeProgress();
-  save();
-  return had;
-}
+function removeDemoData(){ const had=S.logs.some(l=>l.demo); S.logs=S.logs.filter(l=>!l.demo); recomputeProgress(); save(); return had; }
 
 /* ---- log list rendering ---- */
-function niceDate(iso) {
-  const t = todayISO();
-  if (iso === t) return "Today";
-  const y = new Date();
-  y.setDate(y.getDate() - 1);
-  if (iso === todayISO(y)) return "Yesterday";
-  const [Y, M, D] = iso.split("-");
-  return new Date(Y, M - 1, D).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+function niceDate(iso){
+  const t=todayISO(); if(iso===t) return "Today";
+  const y=new Date(); y.setDate(y.getDate()-1); if(iso===todayISO(y)) return "Yesterday";
+  const [Y,M,D]=iso.split("-"); return new Date(Y,M-1,D).toLocaleDateString(undefined,{day:"numeric",month:"short"});
 }
-function logRow(l) {
+function logRow(l){
   // Escape any log-derived strings before they hit innerHTML (defence-in-depth for a future import feature).
-  const label = escapeHtml(SUB[l.sub] || l.sub),
-    unit = escapeHtml(l.unit),
-    when = escapeHtml(niceDate(l.dateISO));
+  const label=escapeHtml(SUB[l.sub]||l.sub), unit=escapeHtml(l.unit), when=escapeHtml(niceDate(l.dateISO));
   return `<div class="item"><span class="em" aria-hidden="true">${CATEM[l.cat]}</span>
     <div class="body"><div class="t">${label}</div>
-      <div class="small muted">${round(l.qty, 2)} ${unit} · ${when}${l.demo ? " · demo" : ""}</div></div>
+      <div class="small muted">${round(l.qty,2)} ${unit} · ${when}${l.demo?' · demo':''}</div></div>
     <div class="right"><div>${fmt(l.kg)}</div><button class="btn small" data-del="${escapeHtml(l.id)}" aria-label="Delete ${label} from ${when}">Delete</button></div>
   </div>`;
 }
-function renderLogList(limit) {
-  const logs = [...S.logs].sort((a, b) => b.dateISO.localeCompare(a.dateISO) || b.ts - a.ts);
-  const shown = limit ? logs.slice(0, limit) : logs;
-  if (!shown.length)
-    return `<p class="note">No activities yet. Tap <strong>＋ Log</strong> to add one — or add demo data from the <em>You</em> tab to explore with sample data.</p>`;
+function renderLogList(limit){
+  const logs=[...S.logs].sort((a,b)=> b.dateISO.localeCompare(a.dateISO) || b.ts-a.ts);
+  const shown=limit?logs.slice(0,limit):logs;
+  if(!shown.length) return `<p class="note">No activities yet. Tap <strong>＋ Log</strong> to add one — or add demo data from the <em>You</em> tab to explore with sample data.</p>`;
   return shown.map(logRow).join("");
 }
-function deleteLog(id, after) {
-  const l = S.logs.find((x) => x.id === id);
-  if (!l) return;
-  removeLog(id);
-  if (after) after();
-  toast("Entry removed", () => {
-    S.logs.push(l);
-    recomputeProgress();
-    save();
-    refreshAll();
-    if ($("#sheet").classList.contains("open")) openAllLogs();
-  });
+function deleteLog(id, after){
+  const l=S.logs.find(x=>x.id===id); if(!l) return;
+  removeLog(id); if(after) after();
+  toast("Entry removed", ()=>{ S.logs.push(l); recomputeProgress(); save(); refreshAll(); if($("#sheet").classList.contains("open")) openAllLogs(); });
 }
-function bindDelete(root) {
-  $$("[data-del]", root).forEach(
-    (b) =>
-      (b.onclick = () =>
-        deleteLog(b.dataset.del, () => {
-          refreshAll();
-          if ($("#sheet").classList.contains("open")) openAllLogs();
-        })),
-  );
-}
-function openAllLogs() {
-  const logs = [...S.logs].sort((a, b) => b.dateISO.localeCompare(a.dateISO) || b.ts - a.ts);
-  const groups = {};
-  logs.forEach((l) => {
-    (groups[l.dateISO] = groups[l.dateISO] || []).push(l);
-  });
-  const body = Object.keys(groups)
-    .sort((a, b) => b.localeCompare(a))
-    .map(
-      (date) =>
-        `<div class="between" style="margin:.9rem 0 .1rem"><strong>${niceDate(date)}</strong><span class="small muted">${fmt(sumKg(groups[date]))}</span></div>` +
-        groups[date].map(logRow).join(""),
-    )
-    .join("");
-  openSheet(
-    `<h2 id="sheet-h">All activity</h2><p class="small muted">${logs.length} ${logs.length === 1 ? "entry" : "entries"} stored on this device.</p>${logs.length ? body : '<p class="note">Nothing logged yet.</p>'}`,
-  );
+function bindDelete(root){ $$("[data-del]",root).forEach(b=>b.onclick=()=>deleteLog(b.dataset.del, ()=>{ refreshAll(); if($("#sheet").classList.contains("open")) openAllLogs(); })); }
+function openAllLogs(){
+  const logs=[...S.logs].sort((a,b)=> b.dateISO.localeCompare(a.dateISO) || b.ts-a.ts);
+  const groups={}; logs.forEach(l=>{ (groups[l.dateISO]=groups[l.dateISO]||[]).push(l); });
+  const body=Object.keys(groups).sort((a,b)=>b.localeCompare(a)).map(date=>
+    `<div class="between" style="margin:.9rem 0 .1rem"><strong>${niceDate(date)}</strong><span class="small muted">${fmt(sumKg(groups[date]))}</span></div>`+
+    groups[date].map(logRow).join("")).join("");
+  openSheet(`<h2 id="sheet-h">All activity</h2><p class="small muted">${logs.length} ${logs.length===1?"entry":"entries"} stored on this device.</p>${logs.length?body:'<p class="note">Nothing logged yet.</p>'}`);
   bindDelete($("#sheet-body"));
 }
+
 
 /* ============================================================
    ROUTER
    ============================================================ */
-function route() {
-  if (!S.consent) return show("welcome", false);
-  if (!S.profile.baselineAnnualKg) return show("quiz", false);
-  show(currentTab, true);
+function route(){
+  if(!S.consent) return show("welcome",false);
+  if(!S.profile.baselineAnnualKg) return show("quiz",false);
+  show(currentTab,true);
 }
-let currentTab = "home";
-function show(view, bar) {
-  $$(".screen").forEach((s) => s.classList.remove("active"));
-  $("#screen-" + view).classList.add("active");
-  $("#appbar").hidden = !bar;
-  document.body.classList.toggle("bare", !bar);
-  $$("#nav [data-go]").forEach((b) =>
-    b.setAttribute("aria-current", b.dataset.go === view ? "page" : "false"),
-  );
-  if (view === "home") renderHome();
-  if (view === "insights") renderInsights();
-  if (view === "act") renderAct();
-  if (view === "you") renderYou();
-  window.scrollTo(0, 0);
-  const h = $("#screen-" + view + " h1");
-  if (h) {
-    h.setAttribute("tabindex", "-1");
-    h.focus({ preventScroll: true });
-  }
+let currentTab="home";
+function show(view,bar){
+  $$(".screen").forEach(s=>s.classList.remove("active"));
+  $("#screen-"+view).classList.add("active");
+  $("#appbar").hidden=!bar;
+  document.body.classList.toggle("bare",!bar);
+  $$("#nav [data-go]").forEach(b=>b.setAttribute("aria-current", b.dataset.go===view?"page":"false"));
+  if(view==="home") renderHome();
+  if(view==="insights") renderInsights();
+  if(view==="act") renderAct();
+  if(view==="you") renderYou();
+  window.scrollTo(0,0);
+  const h=$("#screen-"+view+" h1"); if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
 }
-function go(view) {
-  currentTab = view;
-  show(view, true);
-}
+function go(view){ currentTab=view; show(view,true); }
 
 /* ============================================================
    SVG charts
    ============================================================ */
-function donut(cats) {
-  const entries = Object.entries(cats).filter(([, v]) => v > 0);
-  const total = entries.reduce((a, [, v]) => a + v, 0) || 1;
-  const C = 2 * Math.PI * 54;
-  let cum = 0,
-    segs = "";
-  entries.forEach(([c, v]) => {
-    const len = (v / total) * C;
-    segs += `<circle cx="64" cy="64" r="54" fill="none" stroke="${CATCOLOR[c]}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-cum).toFixed(2)}"></circle>`;
-    cum += len;
-  });
-  if (!entries.length)
-    segs = `<circle cx="64" cy="64" r="54" fill="none" stroke="var(--surface-2)" stroke-width="16"></circle>`;
-  const legend = entries
-    .map(
-      ([c, v]) =>
-        `<li><span class="swatch" style="background:${CATCOLOR[c]}"></span>${CATLABEL[c]}<span class="v">${fmt(v)}</span><span class="pct">${Math.round((v / total) * 100)}%</span></li>`,
-    )
-    .join("");
-  const table = `<table class="sr-only"><caption>Footprint by area</caption><tbody>${entries.map(([c, v]) => `<tr><th scope="row">${CATLABEL[c]}</th><td>${Math.round(v)} kg, ${Math.round((v / total) * 100)}%</td></tr>`).join("")}</tbody></table>`;
-  return `<div class="donutwrap"><svg class="donut" viewBox="0 0 128 128" role="img" aria-label="Footprint by area: ${entries.map(([c, v]) => CATLABEL[c] + " " + Math.round((v / total) * 100) + "%").join(", ") || "no data yet"}"><g transform="rotate(-90 64 64)">${segs}</g></svg><ul class="legend">${legend || '<li class="muted">No data yet.</li>'}</ul>${table}</div>`;
+function donut(cats){
+  const entries=Object.entries(cats).filter(([,v])=>v>0);
+  const total=entries.reduce((a,[,v])=>a+v,0)||1;
+  const C=2*Math.PI*54; let cum=0, segs="";
+  entries.forEach(([c,v])=>{ const len=v/total*C;
+    segs+=`<circle cx="64" cy="64" r="54" fill="none" stroke="${CATCOLOR[c]}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-cum).toFixed(2)}"></circle>`;
+    cum+=len; });
+  if(!entries.length) segs=`<circle cx="64" cy="64" r="54" fill="none" stroke="var(--surface-2)" stroke-width="16"></circle>`;
+  const legend=entries.map(([c,v])=>`<li><span class="swatch" style="background:${CATCOLOR[c]}"></span>${CATLABEL[c]}<span class="v">${fmt(v)}</span><span class="pct">${Math.round(v/total*100)}%</span></li>`).join("");
+  const table=`<table class="sr-only"><caption>Footprint by area</caption><tbody>${entries.map(([c,v])=>`<tr><th scope="row">${CATLABEL[c]}</th><td>${Math.round(v)} kg, ${Math.round(v/total*100)}%</td></tr>`).join("")}</tbody></table>`;
+  return `<div class="donutwrap"><svg class="donut" viewBox="0 0 128 128" role="img" aria-label="Footprint by area: ${entries.map(([c,v])=>CATLABEL[c]+" "+Math.round(v/total*100)+"%").join(", ")||"no data yet"}"><g transform="rotate(-90 64 64)">${segs}</g></svg><ul class="legend">${legend||'<li class="muted">No data yet.</li>'}</ul>${table}</div>`;
 }
-function hbars(rows, max) {
-  const m = max || Math.max(...rows.map((r) => r.v), 1);
-  const bars = rows
-    .map(
-      (r) =>
-        `<div class="bar"><div class="top"><span>${r.label}</span><span>${r.note ?? fmt(r.v)}</span></div><div class="meter"><i style="width:${Math.max(2, (r.v / m) * 100)}%;${r.color ? `background:${r.color}` : ""}"></i></div></div>`,
-    )
-    .join("");
-  const table = `<table class="sr-only"><tbody>${rows.map((r) => `<tr><th scope="row">${r.label}</th><td>${r.note ?? Math.round(r.v) + " kg"}</td></tr>`).join("")}</tbody></table>`;
+function hbars(rows,max){
+  const m=max||Math.max(...rows.map(r=>r.v),1);
+  const bars=rows.map(r=>`<div class="bar"><div class="top"><span>${r.label}</span><span>${r.note??fmt(r.v)}</span></div><div class="meter"><i style="width:${Math.max(2,r.v/m*100)}%;${r.color?`background:${r.color}`:""}"></i></div></div>`).join("");
+  const table=`<table class="sr-only"><tbody>${rows.map(r=>`<tr><th scope="row">${r.label}</th><td>${r.note??Math.round(r.v)+" kg"}</td></tr>`).join("")}</tbody></table>`;
   return `<div class="bars">${bars}</div>${table}`;
 }
-function trend(keys) {
-  const vals = keys.map((k) => ({ k, v: sumKg(logsIn(k)) }));
-  const max = Math.max(...vals.map((v) => v.v), 1);
-  const w = 100 / keys.length;
-  const bars = vals
-    .map((v, i) => {
-      const h = Math.max(2, (v.v / max) * 78);
-      return (
-        `<g><rect x="${i * w + w * 0.2}" y="${88 - h}" width="${w * 0.6}" height="${h}" rx="2" fill="var(--primary)"></rect>` +
-        `<text x="${i * w + w * 0.5}" y="98" text-anchor="middle" font-size="5" fill="var(--ink-2)">${monthLabel(v.k)}</text></g>`
-      );
-    })
-    .join("");
-  const table = `<table class="sr-only"><caption>Monthly footprint</caption><tbody>${vals.map((v) => `<tr><th scope="row">${monthLabel(v.k)}</th><td>${Math.round(v.v)} kg</td></tr>`).join("")}</tbody></table>`;
+function trend(keys){
+  const vals=keys.map(k=>({k,v:sumKg(logsIn(k))}));
+  const max=Math.max(...vals.map(v=>v.v),1);
+  const w=100/keys.length;
+  const bars=vals.map((v,i)=>{ const h=Math.max(2,v.v/max*78);
+    return `<g><rect x="${i*w+w*0.2}" y="${88-h}" width="${w*0.6}" height="${h}" rx="2" fill="var(--primary)"></rect>`+
+           `<text x="${i*w+w*0.5}" y="98" text-anchor="middle" font-size="5" fill="var(--ink-2)">${monthLabel(v.k)}</text></g>`; }).join("");
+  const table=`<table class="sr-only"><caption>Monthly footprint</caption><tbody>${vals.map(v=>`<tr><th scope="row">${monthLabel(v.k)}</th><td>${Math.round(v.v)} kg</td></tr>`).join("")}</tbody></table>`;
   return `<svg viewBox="0 0 100 100" role="img" aria-label="Footprint over the last ${keys.length} months" style="width:100%;height:160px">${bars}</svg>${table}`;
 }
 
 /* ============================================================
    SCREENS
    ============================================================ */
-function renderHome() {
-  const key = monthKey(todayISO()),
-    f = monthFigure(key);
-  const prevKey = lastMonths(2)[0],
-    prev = logsIn(prevKey);
-  const ref = prev.length ? sumKg(prev) : S.profile.baselineAnnualKg / 12;
+function renderHome(){
+  const key=monthKey(todayISO()), f=monthFigure(key);
+  const prevKey=lastMonths(2)[0], prev=logsIn(prevKey);
+  const ref = prev.length ? sumKg(prev) : S.profile.baselineAnnualKg/12;
   const refLabel = prev.length ? "last month" : "your start";
-  const diff = ref ? ((f.kg - ref) / ref) * 100 : 0;
-  const dCls = !ref || Math.abs(diff) < 1 ? "flat" : diff < 0 ? "down" : "up";
-  const dTxt =
-    !ref || Math.abs(diff) < 1
-      ? "about the same"
-      : `${diff < 0 ? "▼" : "▲"} ${Math.abs(Math.round(diff))}% vs ${refLabel}`;
-  const eq = equiv(f.kg);
-  const lv = levelOf(S.profile.xp);
-  const top = topActions()[0];
-  const overTarget = f.kg > BM.target;
-  const fillPct = Math.min(100, (f.kg / Math.max(BM.target, 1)) * 100);
+  const diff = ref ? (f.kg-ref)/ref*100 : 0;
+  const dCls = !ref||Math.abs(diff)<1 ? "flat" : diff<0?"down":"up";
+  const dTxt = !ref||Math.abs(diff)<1 ? "about the same" : `${diff<0?"▼":"▲"} ${Math.abs(Math.round(diff))}% vs ${refLabel}`;
+  const eq=equiv(f.kg);
+  const lv=levelOf(S.profile.xp);
+  const top=topActions()[0];
+  const overTarget=f.kg>BM.target;
+  const fillPct=Math.min(100, f.kg/Math.max(BM.target,1)*100);
 
   $("#home-dynamic").innerHTML = `
     <div class="card hero">
-      <div class="between"><span class="label">This month${f.est ? " · estimated" : ""}</span>
+      <div class="between"><span class="label">This month${f.est?" · estimated":""}</span>
         <span class="delta ${dCls}">${dTxt}</span></div>
       <div class="num">${Math.round(f.kg)} <small>kg CO₂e</small></div>
       <div class="equiv">≈ ${eq.km.toLocaleString()} km of car travel · ${eq.petrol} litres of petrol</div>
       <div class="budget">
-        <div class="track"><div class="fill ${overTarget ? "over" : ""}" style="width:${fillPct}%"></div>
+        <div class="track"><div class="fill ${overTarget?"over":""}" style="width:${fillPct}%"></div>
           <div class="mark" style="left:100%"></div></div>
-        <div class="small muted" style="margin-top:.3rem">Personal 1.5°C target ≈ ${Math.round(BM.target)} kg/month${overTarget ? " — you're above it, small swaps help" : " — you're within it, nice"}</div>
+        <div class="small muted" style="margin-top:.3rem">Personal 1.5°C target ≈ ${Math.round(BM.target)} kg/month${overTarget?" — you're above it, small swaps help":" — you're within it, nice"}</div>
       </div>
-      ${f.est ? `<p class="note" style="margin-top:.7rem">Estimated from your setup answers. Log a few activities to track the real figure.</p>` : ""}
+      ${f.est?`<p class="note" style="margin-top:.7rem">Estimated from your setup answers. Log a few activities to track the real figure.</p>`:""}
     </div>
 
     <div class="card">
@@ -989,9 +682,9 @@ function renderHome() {
 
     <div class="card">
       <div class="between" style="margin-bottom:.4rem"><h2>Recent activity</h2>
-        ${S.logs.length > 5 ? `<button class="btn small" id="see-all-logs">See all (${S.logs.length})</button>` : ""}</div>
+        ${S.logs.length>5?`<button class="btn small" id="see-all-logs">See all (${S.logs.length})</button>`:""}</div>
       ${renderLogList(5)}
-      ${!S.logs.length ? `<button class="btn block" id="home-demo" style="margin-top:.6rem">Add demo data</button>` : ""}
+      ${!S.logs.length?`<button class="btn block" id="home-demo" style="margin-top:.6rem">Add demo data</button>`:""}
     </div>
 
     <div class="card between" style="gap:1rem">
@@ -1000,167 +693,102 @@ function renderHome() {
       <div style="text-align:right"><div class="small muted">Points</div><strong>${S.profile.xp}</strong></div>
     </div>
 
-    ${
-      top
-        ? `<div class="card">
+    ${top?`<div class="card">
       <div class="small muted" style="font-weight:700;margin-bottom:.3rem">Your best next move</div>
       <div class="between" style="gap:.8rem;align-items:flex-start">
         <div><div style="font-weight:700">${top.title}</div>
           <div class="small" style="margin-top:.3rem"><span class="pill ${top.cat}">${CATEM[top.cat]} ${CATLABEL[top.cat]}</span>
           <span class="pill ${top.effort}">${cap(top.effort)}</span>
           <span class="muted"> saves ~${fmt(top.save)}/yr</span></div></div>
-        <button class="btn primary small" data-pledge="${top.id}">${S.pledges[top.id] ? "Pledged" : "Pledge"}</button>
-      </div></div>`
-        : ""
-    }
+        <button class="btn primary small" data-pledge="${top.id}">${S.pledges[top.id]?"Pledged":"Pledge"}</button>
+      </div></div>`:""}
 
     <div class="card">
       <details><summary>Why focus on the big things?</summary>
         <p class="small">The largest cuts almost always come from four levers: how you travel, how often you fly, what you eat, and how you power your home. Tread surfaces yours first so small daily logs add up to a real change — without the guilt.</p>
       </details>
     </div>`;
-  bindGo($("#home-dynamic"));
-  bindPledge($("#home-dynamic"));
-  bindDelete($("#home-dynamic"));
-  const sa = $("#see-all-logs");
-  if (sa) sa.onclick = openAllLogs;
-  const hd = $("#home-demo");
-  if (hd)
-    hd.onclick = () => {
-      addDemoData();
-      refreshAll();
-      toast("Demo data added.");
-    };
+  bindGo($("#home-dynamic")); bindPledge($("#home-dynamic")); bindDelete($("#home-dynamic"));
+  const sa=$("#see-all-logs"); if(sa) sa.onclick=openAllLogs;
+  const hd=$("#home-demo"); if(hd) hd.onclick=()=>{ addDemoData(); refreshAll(); toast("Demo data added."); };
 }
 
-function renderInsights() {
-  const keys = lastMonths(6),
-    key = keys[keys.length - 1],
-    f = monthFigure(key);
-  const subTotals = {};
-  logsIn(key).forEach((l) => {
-    const k = l.cat + "|" + l.sub;
-    subTotals[k] = (subTotals[k] || 0) + l.kg;
-  });
-  const contributors = Object.entries(subTotals)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([k, v]) => ({ label: SUB[k.split("|")[1]] || k, v, color: CATCOLOR[k.split("|")[0]] }));
-  const prevKey = keys[keys.length - 2],
-    prev = logsIn(prevKey);
-  const ref = prev.length ? sumKg(prev) : S.profile.baselineAnnualKg / 12;
-  const cmp = [
-    { label: "This month", v: f.kg, note: fmt(f.kg), color: "var(--primary)" },
-    {
-      label: prev.length ? "Last month" : "Your start",
-      v: ref,
-      note: fmt(ref),
-      color: "var(--accent)",
-    },
-    { label: "India average", v: BM.india, note: fmt(BM.india) },
-    { label: "1.5°C target", v: BM.target, note: fmt(BM.target) },
+function renderInsights(){
+  const keys=lastMonths(6), key=keys[keys.length-1], f=monthFigure(key);
+  const subTotals={}; logsIn(key).forEach(l=>{ const k=l.cat+"|"+l.sub; subTotals[k]=(subTotals[k]||0)+l.kg; });
+  const contributors=Object.entries(subTotals).sort((a,b)=>b[1]-a[1]).slice(0,5)
+    .map(([k,v])=>({label:SUB[k.split("|")[1]]||k, v, color:CATCOLOR[k.split("|")[0]]}));
+  const prevKey=keys[keys.length-2], prev=logsIn(prevKey);
+  const ref = prev.length ? sumKg(prev) : S.profile.baselineAnnualKg/12;
+  const cmp=[
+    {label:"This month", v:f.kg, note:fmt(f.kg), color:"var(--primary)"},
+    {label: prev.length?"Last month":"Your start", v:ref, note:fmt(ref), color:"var(--accent)"},
+    {label:"India average", v:BM.india, note:fmt(BM.india)},
+    {label:"1.5°C target", v:BM.target, note:fmt(BM.target)},
   ];
-  const cmpMax = Math.max(f.kg, ref, BM.india, BM.target);
-  const changed = whatChanged(key, prevKey, prev.length > 0);
-  const hasData = S.logs.length > 0;
+  const cmpMax=Math.max(f.kg,ref,BM.india,BM.target);
+  const changed=whatChanged(key,prevKey,prev.length>0);
+  const hasData=S.logs.length>0;
 
   $("#insights-dynamic").innerHTML = `
     <div class="card">
       <h2 style="margin-bottom:.5rem">Last 6 months</h2>
-      ${hasData ? trend(keys) : `<p class="note">Your trend appears here once you've logged across a couple of months. Keep going — even a few logs a week is enough.</p>`}
+      ${hasData?trend(keys):`<p class="note">Your trend appears here once you've logged across a couple of months. Keep going — even a few logs a week is enough.</p>`}
     </div>
     <div class="card">
-      <h2 style="margin-bottom:.5rem">Top contributors${f.est ? " · estimated" : ""}</h2>
-      ${contributors.length ? hbars(contributors) : `<p class="note">Log a few activities to see exactly what's driving your footprint.</p>`}
+      <h2 style="margin-bottom:.5rem">Top contributors${f.est?" · estimated":""}</h2>
+      ${contributors.length?hbars(contributors):`<p class="note">Log a few activities to see exactly what's driving your footprint.</p>`}
     </div>
     <div class="card">
       <h2 style="margin-bottom:.5rem">How you compare</h2>
-      ${hbars(cmp, cmpMax)}
+      ${hbars(cmp,cmpMax)}
       <p class="small muted" style="margin-top:.4rem">Your past self is the comparison that matters most. Benchmarks are rough averages, shown for context.</p>
     </div>
-    ${changed ? `<div class="card"><h2 style="margin-bottom:.3rem">What changed</h2><p class="small">${changed}</p></div>` : ""}`;
+    ${changed?`<div class="card"><h2 style="margin-bottom:.3rem">What changed</h2><p class="small">${changed}</p></div>`:""}`;
 }
 
-function renderAct() {
-  const lv = levelOf(S.profile.xp),
-    nx = nextLevel(S.profile.xp);
-  const mine = Object.keys(S.pledges)
-    .map((id) => ACTIONS.find((a) => a.id === id))
-    .filter(Boolean);
-  const suggestions = topActions()
-    .filter((a) => !S.pledges[a.id] || S.pledges[a.id].status !== "done")
-    .slice(0, 5);
+function renderAct(){
+  const lv=levelOf(S.profile.xp), nx=nextLevel(S.profile.xp);
+  const mine=Object.keys(S.pledges).map(id=>ACTIONS.find(a=>a.id===id)).filter(Boolean);
+  const suggestions=topActions().filter(a=>!S.pledges[a.id]||S.pledges[a.id].status!=="done").slice(0,5);
 
   $("#act-dynamic").innerHTML = `
     <div class="card">
       <div class="between"><div><div class="small muted">Level</div><strong style="font-size:1.1rem">${lv[1]}</strong></div>
         <div style="text-align:right"><div class="small muted">Points</div><strong style="font-size:1.1rem">${S.profile.xp}</strong></div></div>
-      ${
-        nx
-          ? `<div class="track" style="margin-top:.6rem"><div class="fill" style="width:${Math.round(((S.profile.xp - lv[0]) / (nx[0] - lv[0])) * 100)}%"></div></div>
-      <div class="small muted" style="margin-top:.3rem">${nx[0] - S.profile.xp} points to ${nx[1]}</div>`
-          : `<p class="small muted" style="margin-top:.5rem">Top level reached — keep it up!</p>`
-      }
+      ${nx?`<div class="track" style="margin-top:.6rem"><div class="fill" style="width:${Math.round((S.profile.xp-lv[0])/(nx[0]-lv[0])*100)}%"></div></div>
+      <div class="small muted" style="margin-top:.3rem">${nx[0]-S.profile.xp} points to ${nx[1]}</div>`:`<p class="small muted" style="margin-top:.5rem">Top level reached — keep it up!</p>`}
     </div>
 
-    ${
-      mine.length
-        ? `<div class="card"><h2 style="margin-bottom:.5rem">Your pledges</h2>
-      ${mine
-        .map((a) => {
-          const done = S.pledges[a.id].status === "done";
-          return `<div class="item">
-        <span class="em">${done ? "✅" : "◻️"}</span>
+    ${mine.length?`<div class="card"><h2 style="margin-bottom:.5rem">Your pledges</h2>
+      ${mine.map(a=>{ const done=S.pledges[a.id].status==="done"; return `<div class="item">
+        <span class="em">${done?"✅":"◻️"}</span>
         <div class="body"><div class="t">${a.title}</div>
           <div class="small"><span class="pill ${a.cat}">${CATLABEL[a.cat]}</span> <span class="muted">~${fmt(a.save)}/yr</span></div></div>
-        <div class="right">${done ? '<span class="small muted">Done</span>' : `<button class="btn small primary" data-done="${a.id}">Mark done</button>`}</div>
-      </div>`;
-        })
-        .join("")}</div>`
-        : ""
-    }
+        <div class="right">${done?'<span class="small muted">Done</span>':`<button class="btn small primary" data-done="${a.id}">Mark done</button>`}</div>
+      </div>`;}).join("")}</div>`:""}
 
     <div class="card">
       <h2 style="margin-bottom:.2rem">Suggested for you</h2>
       <p class="small muted" style="margin-bottom:.4rem">Ranked by impact on your biggest areas. One easy win is always near the top.</p>
-      ${suggestions
-        .map(
-          (a) => `<div class="item"><span class="em">${CATEM[a.cat]}</span>
+      ${suggestions.map(a=>`<div class="item"><span class="em">${CATEM[a.cat]}</span>
         <div class="body"><div class="t">${a.title}</div>
           <div class="small" style="margin:.25rem 0"><span class="pill ${a.cat}">${CATLABEL[a.cat]}</span> <span class="pill ${a.effort}">${cap(a.effort)}</span> <span class="muted">saves ~${fmt(a.save)}/yr</span></div>
           <div class="small muted">${a.why}</div></div>
-        <div class="right"><button class="btn small ${S.pledges[a.id] ? "" : "primary"}" data-pledge="${a.id}">${S.pledges[a.id] ? "Pledged" : "Pledge"}</button></div>
-      </div>`,
-        )
-        .join("")}
+        <div class="right"><button class="btn small ${S.pledges[a.id]?"":"primary"}" data-pledge="${a.id}">${S.pledges[a.id]?"Pledged":"Pledge"}</button></div>
+      </div>`).join("")}
     </div>
 
     <div class="card"><h2 style="margin-bottom:.6rem">Badges</h2>
-      <div class="badges">${Object.entries(BADGES)
-        .map(
-          ([id, [em, name]]) =>
-            `<div class="bg ${S.badges[id] ? "on" : ""}"><span class="em">${em}</span>${name}</div>`,
-        )
-        .join("")}</div>
+      <div class="badges">${Object.entries(BADGES).map(([id,[em,name]])=>`<div class="bg ${S.badges[id]?"on":""}"><span class="em">${em}</span>${name}</div>`).join("")}</div>
     </div>`;
   bindPledge($("#act-dynamic"));
-  $$("#act-dynamic [data-done]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        S.pledges[b.dataset.done].status = "done";
-        recomputeProgress();
-        save();
-        live("Action completed. Nice.");
-        renderAct();
-      }),
-  );
+  $$("#act-dynamic [data-done]").forEach(b=>b.onclick=()=>{ S.pledges[b.dataset.done].status="done"; recomputeProgress(); save(); live("Action completed. Nice."); renderAct(); });
 }
 
-function renderYou() {
-  const p = S.profile,
-    lv = levelOf(p.xp),
-    st = S.settings;
-  const annual = Math.round(p.baselineAnnualKg);
+function renderYou(){
+  const p=S.profile, lv=levelOf(p.xp), st=S.settings;
+  const annual=Math.round(p.baselineAnnualKg);
   $("#you-dynamic").innerHTML = `
     <div class="card between">
       <div><div class="small muted">Level ${lv[1]} · ${p.xp} points · ${p.best}-day best streak</div>
@@ -1172,7 +800,7 @@ function renderYou() {
       <p class="small">Your data is stored only in this browser. No account, no server, nothing sent anywhere.</p>
       <button class="btn block" id="export">Export my data (JSON)</button>
       <button class="btn block" id="viewdata">View what's stored</button>
-      <div class="small muted">Consent given ${S.consent ? new Date(S.consent.ts).toLocaleDateString() : "—"} · <button class="btn small" id="withdraw">Withdraw consent</button></div>
+      <div class="small muted">Consent given ${S.consent?new Date(S.consent.ts).toLocaleDateString():"—"} · <button class="btn small" id="withdraw">Withdraw consent</button></div>
       <button class="btn block danger" id="wipe">Delete everything</button>
     </div>
 
@@ -1191,7 +819,7 @@ function renderYou() {
 
     <div class="card stack">
       <h2>📂 Your starting estimate</h2>
-      <p class="small">From your setup: about <strong>${fmt(annual)}/year</strong> — that's what roughly ${Math.max(1, Math.round(annual / 21))} trees soak up in a year.</p>
+      <p class="small">From your setup: about <strong>${fmt(annual)}/year</strong> — that's what roughly ${Math.max(1,Math.round(annual/21))} trees soak up in a year.</p>
       <button class="btn block" id="redo">Redo setup quiz</button>
     </div>
 
@@ -1214,335 +842,150 @@ function renderYou() {
     <p class="small muted" style="text-align:center;margin-bottom:1rem">Tread · a calmer way to tread lightly</p>`;
 
   // bind settings
-  $("#set-size").value = st.textSize;
-  $("#set-hc").checked = st.hc;
-  $("#set-rm").checked = st.rm === true;
-  $("#set-size").onchange = (e) => {
-    st.textSize = e.target.value;
-    applySettings();
-    save();
-  };
-  $("#set-hc").onchange = (e) => {
-    st.hc = e.target.checked;
-    applySettings();
-    save();
-  };
-  $("#set-rm").onchange = (e) => {
-    st.rm = e.target.checked;
-    applySettings();
-    save();
-  };
-  $("#export").onclick = exportData;
-  $("#viewdata").onclick = () =>
-    openSheet(
-      `<h2 id="sheet-h">What's stored on this device</h2><p class="small muted">This is everything Tread keeps — nothing else exists elsewhere.</p><pre class="small" style="white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:.8rem;max-height:50dvh;overflow:auto">${escapeHtml(JSON.stringify(S, null, 2))}</pre>`,
-    );
-  $("#withdraw").onclick = () =>
-    confirmSheet(
-      "Withdraw consent?",
-      "This stops processing and erases everything stored on this device.",
-      "Withdraw &amp; erase",
-      wipeAll,
-    );
-  $("#wipe").onclick = () =>
-    confirmSheet(
-      "Delete everything?",
-      "This permanently erases all your data on this device. It can't be undone.",
-      "Delete everything",
-      wipeAll,
-    );
-  $("#redo").onclick = () => {
-    S.profile.baselineAnnualKg = 0;
-    save();
-    route();
-  };
-  $("#demo-add").onclick = () => {
-    const added = addDemoData();
-    renderYou();
-    toast(added ? "Demo data added — open Home or Insights." : "Demo data is already loaded.");
-  };
-  $("#demo-clear").onclick = () => {
-    const had = removeDemoData();
-    renderYou();
-    toast(had ? "Demo data removed." : "No demo data to remove.");
-  };
+  $("#set-size").value=st.textSize; $("#set-hc").checked=st.hc; $("#set-rm").checked = st.rm===true;
+  $("#set-size").onchange=e=>{ st.textSize=e.target.value; applySettings(); save(); };
+  $("#set-hc").onchange=e=>{ st.hc=e.target.checked; applySettings(); save(); };
+  $("#set-rm").onchange=e=>{ st.rm=e.target.checked; applySettings(); save(); };
+  $("#export").onclick=exportData;
+  $("#viewdata").onclick=()=>openSheet(`<h2 id="sheet-h">What's stored on this device</h2><p class="small muted">This is everything Tread keeps — nothing else exists elsewhere.</p><pre class="small" style="white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:.8rem;max-height:50dvh;overflow:auto">${escapeHtml(JSON.stringify(S,null,2))}</pre>`);
+  $("#withdraw").onclick=()=>confirmSheet("Withdraw consent?","This stops processing and erases everything stored on this device.","Withdraw &amp; erase",wipeAll);
+  $("#wipe").onclick=()=>confirmSheet("Delete everything?","This permanently erases all your data on this device. It can't be undone.","Delete everything",wipeAll);
+  $("#redo").onclick=()=>{ S.profile.baselineAnnualKg=0; save(); route(); };
+  $("#demo-add").onclick=()=>{ const added=addDemoData(); renderYou(); toast(added?"Demo data added — open Home or Insights.":"Demo data is already loaded."); };
+  $("#demo-clear").onclick=()=>{ const had=removeDemoData(); renderYou(); toast(had?"Demo data removed.":"No demo data to remove."); };
 }
 
 /* ---- helpers used by screens ---- */
-function topActions() {
-  const cats = monthFigure(monthKey(todayISO())).cats;
-  const topCat = Object.entries(cats).sort((a, b) => b[1] - a[1])[0]?.[0];
-  return [...ACTIONS].sort((a, b) => {
-    const rel = (b.cat === topCat ? 1 : 0) - (a.cat === topCat ? 1 : 0); // the user's biggest category ranks first
-    return rel || b.save - a.save;
+function topActions(){
+  const cats=monthFigure(monthKey(todayISO())).cats;
+  const topCat=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  return [...ACTIONS].sort((a,b)=>{
+    const rel=(b.cat===topCat?1:0)-(a.cat===topCat?1:0);   // the user's biggest category ranks first
+    return rel || b.save-a.save;
   });
 }
-function whatChanged(key, prevKey, hasPrev) {
-  if (!hasPrev) return "";
-  const now = byCat(logsIn(key)),
-    was = byCat(logsIn(prevKey));
-  let best = null;
-  for (const c in now) {
-    const d = now[c] - was[c];
-    if (best === null || Math.abs(d) > Math.abs(best.d)) best = { c, d };
-  }
-  if (!best || Math.abs(best.d) < 1) return "Your footprint held steady across areas this month.";
-  return `${CATLABEL[best.c]} is ${best.d < 0 ? "down" : "up"} ${fmt(Math.abs(best.d))} versus last month${best.d < 0 ? " — keep it going." : ". A small swap here would help most."}`;
+function whatChanged(key,prevKey,hasPrev){
+  if(!hasPrev) return "";
+  const now=byCat(logsIn(key)), was=byCat(logsIn(prevKey));
+  let best=null;
+  for(const c in now){ const d=now[c]-was[c]; if(best===null||Math.abs(d)>Math.abs(best.d)) best={c,d}; }
+  if(!best||Math.abs(best.d)<1) return "Your footprint held steady across areas this month.";
+  return `${CATLABEL[best.c]} is ${best.d<0?"down":"up"} ${fmt(Math.abs(best.d))} versus last month${best.d<0?" — keep it going.":". A small swap here would help most."}`;
 }
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-function escapeHtml(s) {
-  return String(s).replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
-  );
-}
-function bindGo(root) {
-  $$("[data-go]", root).forEach((b) => (b.onclick = () => go(b.dataset.go)));
-}
-function bindPledge(root) {
-  $$("[data-pledge]", root).forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.dataset.pledge;
-        if (!S.pledges[id]) {
-          S.pledges[id] = { status: "active", ts: Date.now() };
-          recomputeProgress();
-          save();
-          live("Pledge added to your list.");
-        }
-        if (currentTab === "act") renderAct();
-        else if (currentTab === "home") renderHome();
-      }),
-  );
-}
+const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function bindGo(root){ $$("[data-go]",root).forEach(b=>b.onclick=()=>go(b.dataset.go)); }
+function bindPledge(root){ $$("[data-pledge]",root).forEach(b=>b.onclick=()=>{
+  const id=b.dataset.pledge;
+  if(!S.pledges[id]){ S.pledges[id]={status:"active",ts:Date.now()}; recomputeProgress(); save(); live("Pledge added to your list."); }
+  if(currentTab==="act") renderAct(); else if(currentTab==="home") renderHome();
+}); }
 
 /* ============================================================
    LOG SHEET
    ============================================================ */
-function openLog() {
+function openLog(){
   openSheet(`
     <h2 id="sheet-h">Log activity</h2>
     <p class="small muted">Tap a common one, or open detailed entry. Works fully offline.</p>
     <div class="quickgrid" id="quicks">
-      ${PRESETS.map((p, i) => `<button class="quick" data-i="${i}"><span class="em">${p.em}</span>${p.label}</button>`).join("")}
+      ${PRESETS.map((p,i)=>`<button class="quick" data-i="${i}"><span class="em">${p.em}</span>${p.label}</button>`).join("")}
     </div>
     <button class="btn block" id="detailed" style="margin-top:.8rem">Detailed entry…</button>
   `);
-  $$("#quicks .quick").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const p = PRESETS[+b.dataset.i];
-        const log = addLog(p.cat, p.sub, p.qty, p.unit);
-        closeSheet();
-        refreshAll();
-        toast(`+${fmt(log.kg)} · ${p.label} (${round(p.qty, 2)} ${p.unit})`, () => {
-          removeLog(log.id);
-          refreshAll();
-        });
-      }),
-  );
-  $("#detailed").onclick = () => openDetailed();
+  $$("#quicks .quick").forEach(b=>b.onclick=()=>{ const p=PRESETS[+b.dataset.i]; const log=addLog(p.cat,p.sub,p.qty,p.unit);
+    closeSheet(); refreshAll(); toast(`+${fmt(log.kg)} · ${p.label} (${round(p.qty,2)} ${p.unit})`, ()=>{ removeLog(log.id); refreshAll(); }); });
+  $("#detailed").onclick=()=>openDetailed();
 }
 // Detailed-entry field config — one source of truth instead of four near-identical markup blobs.
-const DFIELDS = {
-  travel: {
-    label: "Mode",
-    qty: "Distance (km)",
-    attrs: 'min="0" step="1" value="10" inputmode="decimal"',
-    subs: ["car", "two_wheeler", "auto", "bus", "train", "flight", "walk"],
-  },
-  food: {
-    label: "Meal",
-    qty: "How many",
-    attrs: 'min="1" step="1" value="1" inputmode="numeric"',
-    subs: ["veg", "vegan", "chicken", "fish", "redmeat"],
-  },
-  home: {
-    label: "Type",
-    qty: "Amount",
-    attrs: 'min="0" step="0.5" value="5" inputmode="decimal"',
-    subs: ["electricity", "lpg"],
-    opts: { electricity: "Electricity (kWh)", lpg: "Cooking gas (kg)" },
-  },
-  shopping: {
-    label: "Item",
-    qty: "How many",
-    attrs: 'min="1" step="1" value="1" inputmode="numeric"',
-    subs: ["clothing", "phone", "laptop"],
-  },
+const DFIELDS={
+  travel:  { label:"Mode", qty:"Distance (km)", attrs:'min="0" step="1" value="10" inputmode="decimal"', subs:["car","two_wheeler","auto","bus","train","flight","walk"] },
+  food:    { label:"Meal", qty:"How many",      attrs:'min="1" step="1" value="1" inputmode="numeric"', subs:["veg","vegan","chicken","fish","redmeat"] },
+  home:    { label:"Type", qty:"Amount",        attrs:'min="0" step="0.5" value="5" inputmode="decimal"', subs:["electricity","lpg"], opts:{electricity:"Electricity (kWh)",lpg:"Cooking gas (kg)"} },
+  shopping:{ label:"Item", qty:"How many",      attrs:'min="1" step="1" value="1" inputmode="numeric"', subs:["clothing","phone","laptop"] }
 };
-function detailedFields(cat) {
-  const f = DFIELDS[cat];
-  const opts = f.subs
-    .map((s) => `<option value="${s}">${(f.opts && f.opts[s]) || SUB[s]}</option>`)
-    .join("");
+function detailedFields(cat){
+  const f=DFIELDS[cat];
+  const opts=f.subs.map(s=>`<option value="${s}">${(f.opts&&f.opts[s])||SUB[s]}</option>`).join("");
   return `<div class="field"><label for="d-sub">${f.label}</label><select id="d-sub">${opts}</select></div>
       <div class="field"><label for="d-qty">${f.qty}</label><input type="number" id="d-qty" ${f.attrs}></div>`;
 }
-function openDetailed(cat = "travel") {
-  if (!DFIELDS[cat]) cat = "travel";
+function openDetailed(cat="travel"){
+  if(!DFIELDS[cat]) cat="travel";
   openSheet(`
     <h2 id="sheet-h">Detailed entry</h2>
     <div class="opts" id="catpick" style="margin:.4rem 0 .8rem">
-      ${Object.keys(DFIELDS)
-        .map(
-          (c) =>
-            `<button type="button" class="opt" data-c="${c}" aria-pressed="${c === cat}"><span class="em">${CATEM[c]}</span>${CATLABEL[c]}</button>`,
-        )
-        .join("")}
+      ${Object.keys(DFIELDS).map(c=>`<button type="button" class="opt" data-c="${c}" aria-pressed="${c===cat}"><span class="em">${CATEM[c]}</span>${CATLABEL[c]}</button>`).join("")}
     </div>
     <div id="dfields">${detailedFields(cat)}</div>
     <p class="small muted" id="dprev" aria-live="polite" style="min-height:1.4em"></p>
     <button class="btn primary block" id="dsave">Add to today</button>
   `);
-  const unitFor = (c, s) =>
-    c === "travel"
-      ? "km"
-      : c === "food"
-        ? "meal"
-        : c === "home"
-          ? s === "electricity"
-            ? "kWh"
-            : "kg"
-          : "item";
-  function prev() {
-    const s = $("#d-sub").value,
-      q = parseFloat($("#d-qty").value) || 0;
-    $("#dprev").textContent = `= ${fmt(kgFor(cat, s, q))} CO₂e`;
-    $("#d-qty").removeAttribute("aria-invalid");
-  }
-  function wire() {
-    $("#d-qty").setAttribute("aria-describedby", "dprev");
-    $("#d-sub").onchange = prev;
-    $("#d-qty").oninput = prev;
-    prev();
-  }
+  const unitFor=(c,s)=> c==="travel"?"km" : c==="food"?"meal" : c==="home"?(s==="electricity"?"kWh":"kg") : "item";
+  function prev(){ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value)||0; $("#dprev").textContent=`= ${fmt(kgFor(cat,s,q))} CO₂e`; $("#d-qty").removeAttribute("aria-invalid"); }
+  function wire(){ $("#d-qty").setAttribute("aria-describedby","dprev"); $("#d-sub").onchange=prev; $("#d-qty").oninput=prev; prev(); }
   // Switching category swaps only the fields + pressed state — no full sheet rebuild, focus stays in the dialog.
-  function selectCat(c) {
-    cat = c;
-    $("#dfields").innerHTML = detailedFields(c);
-    $$("#catpick .opt").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c === c)));
-    wire();
-    $("#d-sub").focus();
-  }
-  $$("#catpick .opt").forEach((b) => (b.onclick = () => selectCat(b.dataset.c)));
+  function selectCat(c){ cat=c; $("#dfields").innerHTML=detailedFields(c);
+    $$("#catpick .opt").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.c===c)));
+    wire(); $("#d-sub").focus(); }
+  $$("#catpick .opt").forEach(b=>b.onclick=()=>selectCat(b.dataset.c));
   wire();
-  $("#dsave").onclick = () => {
-    const s = $("#d-sub").value,
-      q = parseFloat($("#d-qty").value);
-    if (!(q > 0)) {
-      $("#dprev").innerHTML = '<span class="err">Enter an amount above zero.</span>';
-      $("#d-qty").setAttribute("aria-invalid", "true");
-      $("#d-qty").focus();
-      return;
-    }
-    const log = addLog(cat, s, q, unitFor(cat, s));
-    closeSheet();
-    refreshAll();
-    toast(`+${fmt(log.kg)} · ${SUB[s]}`, () => {
-      removeLog(log.id);
-      refreshAll();
-    });
-  };
+  $("#dsave").onclick=()=>{ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value);
+    if(!(q>0)){ $("#dprev").innerHTML='<span class="err">Enter an amount above zero.</span>'; $("#d-qty").setAttribute("aria-invalid","true"); $("#d-qty").focus(); return; }
+    const log=addLog(cat,s,q,unitFor(cat,s)); closeSheet(); refreshAll(); toast(`+${fmt(log.kg)} · ${SUB[s]}`, ()=>{ removeLog(log.id); refreshAll(); }); };
 }
 
 /* ---- sheet plumbing ---- */
-let lastFocus = null;
-function openSheet(html) {
-  $("#sheet-body").innerHTML = html;
-  $("#backdrop").classList.add("open");
-  $("#sheet").classList.add("open");
-  lastFocus = document.activeElement;
+let lastFocus=null;
+function openSheet(html){
+  $("#sheet-body").innerHTML=html;
+  $("#backdrop").classList.add("open"); $("#sheet").classList.add("open");
+  lastFocus=document.activeElement;
   // Move focus into the dialog: prefer the first form field; never auto-focus a destructive button.
-  ($("#sheet input,#sheet select,#sheet textarea") || $("#sheet")).focus();
-  document.addEventListener("keydown", escClose);
+  ($('#sheet input,#sheet select,#sheet textarea')||$("#sheet")).focus();
+  document.addEventListener("keydown",escClose);
 }
-function closeSheet() {
-  $("#backdrop").classList.remove("open");
-  $("#sheet").classList.remove("open");
-  document.removeEventListener("keydown", escClose);
-  if (lastFocus && lastFocus.focus) lastFocus.focus();
-}
-function escClose(e) {
-  if (e.key === "Escape") closeSheet();
-  if (e.key === "Tab") {
-    const f = $$("#sheet button,#sheet input,#sheet select,#sheet [tabindex]").filter(
-      (x) => !x.disabled,
-    );
-    if (!f.length) return;
-    const first = f[0],
-      last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
-}
-function confirmSheet(title, body, confirmLabel, fn) {
+function closeSheet(){ $("#backdrop").classList.remove("open"); $("#sheet").classList.remove("open");
+  document.removeEventListener("keydown",escClose); if(lastFocus&&lastFocus.focus) lastFocus.focus(); }
+function escClose(e){ if(e.key==="Escape") closeSheet();
+  if(e.key==="Tab"){ const f=$$('#sheet button,#sheet input,#sheet select,#sheet [tabindex]').filter(x=>!x.disabled);
+    if(!f.length) return; const first=f[0],last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();} } }
+function confirmSheet(title,body,confirmLabel,fn){
   openSheet(`<h2 id="sheet-h">${title}</h2><p>${body}</p>
     <div class="stack"><button class="btn danger block" id="cyes">${confirmLabel}</button>
     <button class="btn block" id="cno">Cancel</button></div>`);
-  $("#cyes").onclick = () => {
-    closeSheet();
-    fn();
-  };
-  $("#cno").onclick = closeSheet;
+  $("#cyes").onclick=()=>{ closeSheet(); fn(); };
+  $("#cno").onclick=closeSheet;
 }
 
 /* ---- toast with undo (callback-based) ---- */
-let toastUndoFn = null,
-  toastT = null;
-function toast(msg, undoFn) {
-  $("#toast-msg").textContent = msg;
-  toastUndoFn = undoFn || null;
-  $("#toast-undo").hidden = !undoFn;
-  $("#toast").classList.add("show");
-  live(msg);
-  clearTimeout(toastT);
-  toastT = setTimeout(() => $("#toast").classList.remove("show"), 5000);
+let toastUndoFn=null, toastT=null;
+function toast(msg, undoFn){
+  $("#toast-msg").textContent=msg; toastUndoFn=undoFn||null;
+  $("#toast-undo").hidden=!undoFn; $("#toast").classList.add("show"); live(msg);
+  clearTimeout(toastT); toastT=setTimeout(()=>$("#toast").classList.remove("show"),5000);
 }
-$("#toast-undo").onclick = () => {
-  const fn = toastUndoFn;
-  toastUndoFn = null;
-  $("#toast").classList.remove("show");
-  if (fn) fn();
-};
+$("#toast-undo").onclick=()=>{ const fn=toastUndoFn; toastUndoFn=null; $("#toast").classList.remove("show"); if(fn) fn(); };
 
 /* ---- data actions ---- */
-function exportData() {
-  const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "tread-data-" + todayISO() + ".json";
-  a.click();
-  URL.revokeObjectURL(a.href);
+function exportData(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="tread-data-"+todayISO()+".json"; a.click(); URL.revokeObjectURL(a.href);
   live("Your data was exported as a file.");
 }
-function wipeAll() {
-  localStorage.removeItem("tread");
-  S = blank();
-  applySettings();
-  currentTab = "home";
-  route();
-  live("Everything was erased.");
-}
+function wipeAll(){ localStorage.removeItem("tread"); S=blank(); applySettings(); currentTab="home"; route(); live("Everything was erased."); }
 
 /* ---- settings ---- */
-function applySettings() {
-  const st = S.settings;
-  document.documentElement.className = `ts-${st.textSize}${st.hc ? " hc" : ""}${st.rm === true ? " rm" : ""}`;
+function applySettings(){
+  const st=S.settings;
+  document.documentElement.className=`ts-${st.textSize}${st.hc?" hc":""}${st.rm===true?" rm":""}`;
 }
 
 /* ---- refresh whatever's visible ---- */
-function refreshAll() {
-  if (currentTab === "home") renderHome();
-  else if (currentTab === "insights") renderInsights();
-  else if (currentTab === "act") renderAct();
-  else if (currentTab === "you") renderYou();
-}
+function refreshAll(){ if(currentTab==="home") renderHome(); else if(currentTab==="insights") renderInsights(); else if(currentTab==="act") renderAct(); else if(currentTab==="you") renderYou(); }
 
 /* ============================================================
    WIRING
@@ -1558,81 +1001,38 @@ $("#privacy-full").innerHTML = `
   <p><strong>Children.</strong> Tread is general-audience, asks for no identity details, and sends nothing off-device.</p>`;
 
 // consent
-$("#consent-cb").onchange = (e) => ($("#consent-go").disabled = !e.target.checked);
-$("#consent-go").onclick = () => {
-  S.consent = { given: true, version: "1.0", ts: Date.now() };
-  save();
-  route();
-};
+$("#consent-cb").onchange=e=>$("#consent-go").disabled=!e.target.checked;
+$("#consent-go").onclick=()=>{ S.consent={given:true,version:"1.0",ts:Date.now()}; save(); route(); };
 
 // quiz interactions
-const quiz = {
-  mode: "car",
-  flights: 0,
-  diet: "mixed",
-  cook: "lpg",
-  shop: "some",
-  km: 20,
-  bill: 1500,
-  house: 3,
-};
-$$("#screen-quiz .opts").forEach((group) => {
-  const name = group.dataset.group;
-  $$(".opt", group).forEach(
-    (b) =>
-      (b.onclick = () => {
-        $$(".opt", group).forEach((x) => x.setAttribute("aria-pressed", "false"));
-        b.setAttribute("aria-pressed", "true");
-        quiz[name] = name === "flights" ? +b.dataset.v : b.dataset.v;
-      }),
-  );
+const quiz={ mode:"car", flights:0, diet:"mixed", cook:"lpg", shop:"some", km:20, bill:1500, house:3 };
+$$('#screen-quiz .opts').forEach(group=>{
+  const name=group.dataset.group;
+  $$(".opt",group).forEach(b=>b.onclick=()=>{
+    $$(".opt",group).forEach(x=>x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    quiz[name]= name==="flights" ? +b.dataset.v : b.dataset.v;
+  });
 });
 // preselect defaults visually
-function preselQuiz() {
-  const map = { mode: "car", diet: "mixed", cook: "lpg", shop: "some", flights: "0" };
-  for (const g in map) {
-    const grp = $(`#screen-quiz .opts[data-group="${g}"]`);
-    const b = $(`.opt[data-v="${map[g]}"]`, grp);
-    if (b) b.setAttribute("aria-pressed", "true");
-  }
-}
-$("#q-km").oninput = (e) => {
-  quiz.km = +e.target.value;
-  $("#q-km-out").textContent = e.target.value + " km";
-};
-function finishQuiz(useDefaults) {
-  if (!useDefaults) {
-    quiz.bill = parseFloat($("#q-bill").value) || 1500;
-    quiz.house = parseInt($("#q-house").value) || 3;
-  }
-  const src = useDefaults
-    ? {
-        mode: "two_wheeler",
-        flights: 0,
-        diet: "veg",
-        cook: "lpg",
-        shop: "some",
-        km: 20,
-        bill: 1200,
-        house: 4,
-      }
-    : quiz;
-  const b = baselineFrom(src);
-  S.profile.baselineAnnualKg = b.total;
-  S.profile.byCat = b.byCat;
-  S.profile.house = b.house;
-  save();
-  currentTab = "home";
-  route();
+function preselQuiz(){ const map={mode:"car",diet:"mixed",cook:"lpg",shop:"some",flights:"0"};
+  for(const g in map){ const grp=$(`#screen-quiz .opts[data-group="${g}"]`); const b=$(`.opt[data-v="${map[g]}"]`,grp); if(b) b.setAttribute("aria-pressed","true"); } }
+$("#q-km").oninput=e=>{ quiz.km=+e.target.value; $("#q-km-out").textContent=e.target.value+" km"; };
+function finishQuiz(useDefaults){
+  if(!useDefaults){ quiz.bill=parseFloat($("#q-bill").value)||1500; quiz.house=parseInt($("#q-house").value)||3; }
+  const src=useDefaults?{mode:"two_wheeler",flights:0,diet:"veg",cook:"lpg",shop:"some",km:20,bill:1200,house:4}:quiz;
+  const b=baselineFrom(src);
+  S.profile.baselineAnnualKg=b.total; S.profile.byCat=b.byCat; S.profile.house=b.house;
+  save(); currentTab="home"; route();
   live(`Your starting point is about ${fmt(b.total)} a year.`);
 }
-$("#quiz-go").onclick = () => finishQuiz(false);
-$("#quiz-skip").onclick = () => finishQuiz(true);
+$("#quiz-go").onclick=()=>finishQuiz(false);
+$("#quiz-skip").onclick=()=>finishQuiz(true);
 
 // nav + log
-$$("#nav [data-go]").forEach((b) => (b.onclick = () => go(b.dataset.go)));
-$("#log-btn").onclick = openLog;
-$("#backdrop").onclick = closeSheet;
+$$("#nav [data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+$("#log-btn").onclick=openLog;
+$("#backdrop").onclick=closeSheet;
 
 // boot
 preselQuiz();
@@ -1640,18 +1040,10 @@ applySettings();
 route();
 
 // service worker (offline). Wrapped so a failure never breaks the app.
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  });
-}
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
 // offline indicator
-function net() {
-  document.body.classList.toggle("is-offline", !navigator.onLine);
-}
-addEventListener("online", net);
-addEventListener("offline", net);
-net();
+function net(){ document.body.classList.toggle("is-offline", !navigator.onLine); }
+addEventListener("online",net); addEventListener("offline",net); net();
 </script>
 </body>
 </html>
