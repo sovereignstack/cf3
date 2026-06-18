@@ -113,6 +113,8 @@ whenReady(() => {
     section("Detailed entry");
     click($("#log-btn")); click($("#detailed"));
     click(d.querySelector('#catpick .opt[data-c="food"]'));
+    ok($("#sheet").classList.contains("open") && d.querySelector('#catpick .opt[data-c="food"]').getAttribute("aria-pressed") === "true",
+      "switching category swaps fields in place (sheet stays open, tab marked pressed)");
     setVal($("#d-sub"), "redmeat"); setVal($("#d-qty"), "2");
     ok(/CO₂e/.test($("#dprev").textContent), "live CO₂e preview updates");
     const before = store().logs.length; click($("#dsave"));

@@ -897,36 +897,39 @@ function openLog(){
     closeSheet(); refreshAll(); toast(`+${fmt(log.kg)} · ${p.label} (${round(p.qty,2)} ${p.unit})`, ()=>{ removeLog(log.id); refreshAll(); }); });
   $("#detailed").onclick=()=>openDetailed();
 }
+// Detailed-entry field config — one source of truth instead of four near-identical markup blobs.
+const DFIELDS={
+  travel:  { label:"Mode", qty:"Distance (km)", attrs:'min="0" step="1" value="10" inputmode="decimal"', subs:["car","two_wheeler","auto","bus","train","flight","walk"] },
+  food:    { label:"Meal", qty:"How many",      attrs:'min="1" step="1" value="1" inputmode="numeric"', subs:["veg","vegan","chicken","fish","redmeat"] },
+  home:    { label:"Type", qty:"Amount",        attrs:'min="0" step="0.5" value="5" inputmode="decimal"', subs:["electricity","lpg"], opts:{electricity:"Electricity (kWh)",lpg:"Cooking gas (kg)"} },
+  shopping:{ label:"Item", qty:"How many",      attrs:'min="1" step="1" value="1" inputmode="numeric"', subs:["clothing","phone","laptop"] }
+};
+function detailedFields(cat){
+  const f=DFIELDS[cat];
+  const opts=f.subs.map(s=>`<option value="${s}">${(f.opts&&f.opts[s])||SUB[s]}</option>`).join("");
+  return `<div class="field"><label for="d-sub">${f.label}</label><select id="d-sub">${opts}</select></div>
+      <div class="field"><label for="d-qty">${f.qty}</label><input type="number" id="d-qty" ${f.attrs}></div>`;
+}
 function openDetailed(cat="travel"){
-  if(!["travel","food","home","shopping"].includes(cat)) cat="travel";
-  const fields={
-    travel:`<div class="field"><label for="d-sub">Mode</label><select id="d-sub">
-      ${["car","two_wheeler","auto","bus","train","flight","walk"].map(s=>`<option value="${s}">${SUB[s]}</option>`).join("")}</select></div>
-      <div class="field"><label for="d-qty">Distance (km)</label><input type="number" id="d-qty" min="0" step="1" value="10" inputmode="decimal"></div>`,
-    food:`<div class="field"><label for="d-sub">Meal</label><select id="d-sub">
-      ${["veg","vegan","chicken","fish","redmeat"].map(s=>`<option value="${s}">${SUB[s]}</option>`).join("")}</select></div>
-      <div class="field"><label for="d-qty">How many</label><input type="number" id="d-qty" min="1" step="1" value="1" inputmode="numeric"></div>`,
-    home:`<div class="field"><label for="d-sub">Type</label><select id="d-sub">
-      <option value="electricity">Electricity (kWh)</option><option value="lpg">Cooking gas (kg)</option></select></div>
-      <div class="field"><label for="d-qty">Amount</label><input type="number" id="d-qty" min="0" step="0.5" value="5" inputmode="decimal"></div>`,
-    shopping:`<div class="field"><label for="d-sub">Item</label><select id="d-sub">
-      ${["clothing","phone","laptop"].map(s=>`<option value="${s}">${SUB[s]}</option>`).join("")}</select></div>
-      <div class="field"><label for="d-qty">How many</label><input type="number" id="d-qty" min="1" step="1" value="1" inputmode="numeric"></div>`
-  };
+  if(!DFIELDS[cat]) cat="travel";
   openSheet(`
     <h2 id="sheet-h">Detailed entry</h2>
     <div class="opts" id="catpick" style="margin:.4rem 0 .8rem">
-      ${["travel","food","home","shopping"].map(c=>`<button type="button" class="opt" data-c="${c}" aria-pressed="${c===cat}"><span class="em">${CATEM[c]}</span>${CATLABEL[c]}</button>`).join("")}
+      ${Object.keys(DFIELDS).map(c=>`<button type="button" class="opt" data-c="${c}" aria-pressed="${c===cat}"><span class="em">${CATEM[c]}</span>${CATLABEL[c]}</button>`).join("")}
     </div>
-    <div id="dfields">${fields[cat]}</div>
+    <div id="dfields">${detailedFields(cat)}</div>
     <p class="small muted" id="dprev" aria-live="polite" style="min-height:1.4em"></p>
     <button class="btn primary block" id="dsave">Add to today</button>
   `);
-  $$("#catpick .opt").forEach(b=>b.onclick=()=>openDetailed(b.dataset.c));
   const unitFor=(c,s)=> c==="travel"?"km" : c==="food"?"meal" : c==="home"?(s==="electricity"?"kWh":"kg") : "item";
   function prev(){ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value)||0; $("#dprev").textContent=`= ${fmt(kgFor(cat,s,q))} CO₂e`; $("#d-qty").removeAttribute("aria-invalid"); }
-  $("#d-qty").setAttribute("aria-describedby","dprev");   // tie the live preview / validation error to the field
-  $("#d-sub").onchange=prev; $("#d-qty").oninput=prev; prev();
+  function wire(){ $("#d-qty").setAttribute("aria-describedby","dprev"); $("#d-sub").onchange=prev; $("#d-qty").oninput=prev; prev(); }
+  // Switching category swaps only the fields + pressed state — no full sheet rebuild, focus stays in the dialog.
+  function selectCat(c){ cat=c; $("#dfields").innerHTML=detailedFields(c);
+    $$("#catpick .opt").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.c===c)));
+    wire(); $("#d-sub").focus(); }
+  $$("#catpick .opt").forEach(b=>b.onclick=()=>selectCat(b.dataset.c));
+  wire();
   $("#dsave").onclick=()=>{ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value);
     if(!(q>0)){ $("#dprev").innerHTML='<span class="err">Enter an amount above zero.</span>'; $("#d-qty").setAttribute("aria-invalid","true"); $("#d-qty").focus(); return; }
     const log=addLog(cat,s,q,unitFor(cat,s)); closeSheet(); refreshAll(); toast(`+${fmt(log.kg)} · ${SUB[s]}`, ()=>{ removeLog(log.id); refreshAll(); }); };
