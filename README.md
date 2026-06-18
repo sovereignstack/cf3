@@ -32,7 +32,7 @@ npm test         # unit tests + headless smoke test (drives the real flow in jsd
 npm run check    # quick syntax check of the inline script
 ```
 
-CI runs the same tests on every push — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+CI runs the same tests on every push.
 
 ## Deploy
 
@@ -40,8 +40,7 @@ The app is just static files, so it deploys anywhere static:
 
 - **GitHub Pages / any static host** — publish the repo root. All asset paths are relative, so it
   also works from a subfolder (e.g. a project-site URL).
-- **Google Cloud Run** — a tiny static-file container ([`Dockerfile`](Dockerfile)) serves the same
-  files on `$PORT`:
+- **Google Cloud Run** — a tiny static-file container serves the same files on `$PORT`:
 
   ```bash
   gcloud run deploy tread --source . --region <region> --allow-unauthenticated

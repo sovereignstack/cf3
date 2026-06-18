@@ -442,7 +442,7 @@ function sumKg(arr){ return arr.reduce((a,l)=>a+l.kg,0); }
 function byCat(arr){ const o={travel:0,food:0,home:0,shopping:0}; arr.forEach(l=>o[l.cat]+=l.kg); return o; }
 function equiv(kg){ return { km: Math.round(kg/0.17), petrol: Math.round(kg/2.31) }; }
 const round = (n,d=0)=>{ const f=10**d; return Math.round(n*f)/f; };
-const fmt = kg => kg>=1000 ? round(kg/1000,2)+" t" : Math.round(kg)+" kg";
+function fmt(kg){ return kg>=1000 ? round(kg/1000,2)+" t" : Math.round(kg)+" kg"; }
 
 /* current-month figure: real logs if any, else baseline estimate */
 function monthFigure(key){
@@ -482,11 +482,17 @@ function nextLevel(xp){ return LEVELS.find(l=>l[0]>xp)||null; }
 function award(id){ if(!S.badges[id]){ S.badges[id]=todayISO(); live("Badge earned: "+BADGES[id][1]); } }
 /* recompute xp / streak / badges from the full log set + pledges.
    Called after any change so add, delete and demo-fill stay consistent. */
+const XP_PER_LOG = 5;             // points per logged activity...
+const XP_MAX_LOGS_PER_DAY = 5;    // ...counting at most this many per day, so daily XP caps at 25
+const XP_PLEDGE = 10;             // points for making a pledge
+const XP_PLEDGE_DONE = 30;        // total points once a pledge is marked done
+const ALL_CATEGORIES = 4;         // logging in all four categories earns the "allcats" badge
+const WEEK_STREAK_DAYS = 7;       // streak length that earns the "week" badge
 function recomputeProgress(){
   const p=S.profile;
   const byDay={}; S.logs.forEach(l=>{ byDay[l.dateISO]=(byDay[l.dateISO]||0)+1; });
-  let xp=0; Object.values(byDay).forEach(c=>xp+=Math.min(c,5)*5);          // +5/log, capped 25/day
-  Object.values(S.pledges).forEach(pl=>{ xp+= pl.status==="done"?30:10; }); // pledge 10, done +20
+  let xp=0; Object.values(byDay).forEach(c=>xp+=Math.min(c,XP_MAX_LOGS_PER_DAY)*XP_PER_LOG);
+  Object.values(S.pledges).forEach(pl=>{ xp+= pl.status==="done"?XP_PLEDGE_DONE:XP_PLEDGE; });
   p.xp=xp;
   const days=new Set(S.logs.map(l=>l.dateISO));
   let streak=0, d=new Date();
@@ -495,8 +501,8 @@ function recomputeProgress(){
   p.streak=streak; p.best=Math.max(p.best||0, streak);
   p.lastLog = S.logs.length ? [...days].sort().pop() : null;
   if(S.logs.length) award("first_log");
-  if(new Set(S.logs.map(l=>l.cat)).size>=4) award("allcats");
-  if(p.best>=7) award("week");
+  if(new Set(S.logs.map(l=>l.cat)).size>=ALL_CATEGORIES) award("allcats");
+  if(p.best>=WEEK_STREAK_DAYS) award("week");
   if(Object.values(S.pledges).some(pl=>pl.status==="done")) award("action1");
   const key=monthKey(todayISO());
   if(S.logs.length && sumKg(logsIn(key)) < p.baselineAnnualKg/12) award("under");
@@ -847,7 +853,7 @@ function topActions(){
   const cats=monthFigure(monthKey(todayISO())).cats;
   const topCat=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0]?.[0];
   return [...ACTIONS].sort((a,b)=>{
-    const rel=(a.cat===topCat?1e6:0)-(b.cat===topCat?1e6:0);
+    const rel=(b.cat===topCat?1:0)-(a.cat===topCat?1:0);   // the user's biggest category ranks first
     return rel || b.save-a.save;
   });
 }

@@ -73,6 +73,29 @@ whenReady(() => {
     ok(store().profile.best >= 3, "best streak is recorded");
     ok(store().profile.xp > 0, "logging awards XP");
 
+    section("equiv & fmt — formatting edge cases");
+    ok(w.equiv(0).km === 0 && w.equiv(0).petrol === 0, "equiv(0) is zero on both measures (no NaN)");
+    ok(w.fmt(500) === "500 kg", "fmt shows whole kg below 1 tonne");
+    ok(w.fmt(999) === "999 kg" && w.fmt(1000) === "1 t", "fmt boundary: 999 kg stays kg, 1000 kg becomes tonnes");
+    ok(w.fmt(1500) === "1.5 t", "fmt switches to tonnes (1500 kg → 1.5 t)");
+
+    section("topActions — ranks the user's biggest category first");
+    w.addLog("travel", "car", 800, "km", isoAgo(0));   // dominate this month with travel
+    const ranked = w.topActions();
+    ok(Array.isArray(ranked) && ranked.length > 0 && ranked.every((a) => a.cat && a.id), "returns a ranked, well-formed action list");
+    ok(ranked[0].cat === "travel", "boosts an action in the dominant category (travel) to the top");
+    const tw = ranked.filter((a) => a.cat === "travel");
+    ok(tw.length < 2 || tw[0].save >= tw[1].save, "within a category, the larger yearly saving ranks first");
+
+    section("recomputeProgress — badges");
+    w.addLog("food", "veg", 1, "meal", isoAgo(0));
+    w.addLog("home", "electricity", 1, "kWh", isoAgo(0));
+    w.addLog("shopping", "clothing", 1, "item", isoAgo(0));
+    ok(store().badges.first_log, "first log earns the first-log badge");
+    ok(store().badges.allcats, "logging all four categories earns the all-categories badge");
+    for (let i = 0; i < 7; i++) w.addLog("travel", "car", 1, "km", isoAgo(i));
+    ok(store().profile.streak >= 7 && store().badges.week, "a 7-day streak earns the week badge");
+
     section("Storage error paths are non-fatal");
     w.localStorage.setItem("tread", "{ this is : not json");
     let loaded, loadThrew = false;

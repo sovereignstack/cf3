@@ -158,7 +158,12 @@ whenReady(() => {
         ok($("#live").textContent.trim().length > 0, "an action announces via the aria-live region (screen reader)");
 
         section("Privacy controls");
-        click($("#export")); ok(true, "export runs without error");
+        let exported = false;
+        const origCOU = w.URL.createObjectURL;
+        w.URL.createObjectURL = (b) => { exported = true; return origCOU(b); };
+        click($("#export"));
+        w.URL.createObjectURL = origCOU;
+        ok(exported, "export actually builds a downloadable blob (createObjectURL invoked)");
         click($("#demo-clear"));
         ok(store().logs.filter((l) => l.demo).length === 0, "remove-demo clears demo logs");
         click($("#wipe")); click($("#cyes"));
