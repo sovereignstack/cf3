@@ -457,7 +457,8 @@ function monthFigure(key){
    Named constants for the annual-estimate model (India-calibrated; see CLAUDE.md / in-app About). */
 const DAYS_PER_YEAR = 365;
 const MEALS_PER_DAY = 3;
-const DIET_MEAL_FACTOR = { vegan:.7, veg:1.0, mixed:1.4, meat:3.0 };  // CO₂e multiplier per meal vs a veg baseline
+// Quiz-baseline meal multiplier — distinct from F.food (which is kg/meal for individually logged meals).
+const DIET_MEAL_FACTOR = { vegan:.7, veg:1.0, mixed:1.4, meat:3.0 };
 const FLIGHT_ANNUAL_KG = { 0:0, 1:560, 2:2000 };                      // est. annual flight CO₂e: none / occasional / frequent flyer
 const ELEC_TARIFF_PER_KWH = 8;                                        // ₹/kWh — converts a monthly ₹ bill into kWh
 const DEFAULT_MONTHLY_BILL = 1500;                                    // ₹/month fallback electricity bill
@@ -490,28 +491,29 @@ const XP_PLEDGE_DONE = 30;        // total points once a pledge is marked done
 const ALL_CATEGORIES = 4;         // logging in all four categories earns the "allcats" badge
 const WEEK_STREAK_DAYS = 7;       // streak length that earns the "week" badge
 function recomputeProgress(){
-  const p=S.profile;
+  const profile=S.profile;
   const key=monthKey(todayISO());
   // Single pass over the logs builds everything the gamification needs (was 4+ separate passes).
-  const byDay={}, days=new Set(), cats=new Set(); let monthKg=0;
-  for(const l of S.logs){
-    byDay[l.dateISO]=(byDay[l.dateISO]||0)+1;
-    days.add(l.dateISO); cats.add(l.cat);
-    if(monthKey(l.dateISO)===key) monthKg+=l.kg;
+  const logsPerDay={}, daysLogged=new Set(), categories=new Set(); let monthKg=0;
+  for(const log of S.logs){
+    logsPerDay[log.dateISO]=(logsPerDay[log.dateISO]||0)+1;
+    daysLogged.add(log.dateISO); categories.add(log.cat);
+    if(monthKey(log.dateISO)===key) monthKg+=log.kg;
   }
-  let xp=0; for(const c of Object.values(byDay)) xp+=Math.min(c,XP_MAX_LOGS_PER_DAY)*XP_PER_LOG;
-  for(const pl of Object.values(S.pledges)) xp+= pl.status==="done"?XP_PLEDGE_DONE:XP_PLEDGE;
-  p.xp=xp;
-  let streak=0, d=new Date();
-  if(!days.has(todayISO(d))) d.setDate(d.getDate()-1);   // forgiving: today optional
-  while(days.has(todayISO(d))){ streak++; d.setDate(d.getDate()-1); }
-  p.streak=streak; p.best=Math.max(p.best||0, streak);
-  p.lastLog = S.logs.length ? [...days].sort().pop() : null;
+  let xp=0;
+  for(const count of Object.values(logsPerDay)) xp+=Math.min(count,XP_MAX_LOGS_PER_DAY)*XP_PER_LOG;
+  for(const pledge of Object.values(S.pledges)) xp+= pledge.status==="done"?XP_PLEDGE_DONE:XP_PLEDGE;
+  profile.xp=xp;
+  let streak=0, cursor=new Date();
+  if(!daysLogged.has(todayISO(cursor))) cursor.setDate(cursor.getDate()-1);   // forgiving: today optional
+  while(daysLogged.has(todayISO(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
+  profile.streak=streak; profile.best=Math.max(profile.best||0, streak);
+  profile.lastLog = S.logs.length ? [...daysLogged].sort().pop() : null;
   if(S.logs.length) award("first_log");
-  if(cats.size>=ALL_CATEGORIES) award("allcats");
-  if(p.best>=WEEK_STREAK_DAYS) award("week");
-  if(Object.values(S.pledges).some(pl=>pl.status==="done")) award("action1");
-  if(S.logs.length && monthKg < p.baselineAnnualKg/12) award("under");
+  if(categories.size>=ALL_CATEGORIES) award("allcats");
+  if(profile.best>=WEEK_STREAK_DAYS) award("week");
+  if(Object.values(S.pledges).some(pledge=>pledge.status==="done")) award("action1");
+  if(S.logs.length && monthKg < profile.baselineAnnualKg/12) award("under");
 }
 
 /* ---- add / remove a log ---- */
