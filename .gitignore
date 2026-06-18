@@ -6,3 +6,6 @@ mnt/
 
 # Dev dependencies (installed on demand; never shipped)
 dev/node_modules/
+
+# Python icon generator (dev-only) — icons are pre-generated and committed; keep it out of the bundle
+dev/make_icons.py
