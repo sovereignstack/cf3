@@ -2,6 +2,9 @@
 <html lang="en" class="ts-m">
 <head>
 <meta charset="utf-8">
+<!-- Privacy guarantee enforced in the browser: same-origin only, no third-party anything.
+     'unsafe-inline' is required because the whole app is one inline script/style block (no build step). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; manifest-src 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#15803D">
 <meta name="description" content="Tread is a private, offline-first app that helps you understand, track, and reduce your carbon footprint with simple daily logging and personalised actions. Your data never leaves your device.">
@@ -532,10 +535,12 @@ function niceDate(iso){
   const [Y,M,D]=iso.split("-"); return new Date(Y,M-1,D).toLocaleDateString(undefined,{day:"numeric",month:"short"});
 }
 function logRow(l){
+  // Escape any log-derived strings before they hit innerHTML (defence-in-depth for a future import feature).
+  const label=escapeHtml(SUB[l.sub]||l.sub), unit=escapeHtml(l.unit), when=escapeHtml(niceDate(l.dateISO));
   return `<div class="item"><span class="em" aria-hidden="true">${CATEM[l.cat]}</span>
-    <div class="body"><div class="t">${SUB[l.sub]||l.sub}</div>
-      <div class="small muted">${round(l.qty,2)} ${l.unit} · ${niceDate(l.dateISO)}${l.demo?' · demo':''}</div></div>
-    <div class="right"><div>${fmt(l.kg)}</div><button class="btn small" data-del="${l.id}" aria-label="Delete ${SUB[l.sub]||l.sub} from ${niceDate(l.dateISO)}">Delete</button></div>
+    <div class="body"><div class="t">${label}</div>
+      <div class="small muted">${round(l.qty,2)} ${unit} · ${when}${l.demo?' · demo':''}</div></div>
+    <div class="right"><div>${fmt(l.kg)}</div><button class="btn small" data-del="${escapeHtml(l.id)}" aria-label="Delete ${label} from ${when}">Delete</button></div>
   </div>`;
 }
 function renderLogList(limit){
@@ -847,7 +852,7 @@ function whatChanged(key,prevKey,hasPrev){
   return `${CATLABEL[best.c]} is ${best.d<0?"down":"up"} ${fmt(Math.abs(best.d))} versus last month${best.d<0?" — keep it going.":". A small swap here would help most."}`;
 }
 const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
-function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function bindGo(root){ $$("[data-go]",root).forEach(b=>b.onclick=()=>go(b.dataset.go)); }
 function bindPledge(root){ $$("[data-pledge]",root).forEach(b=>b.onclick=()=>{
   const id=b.dataset.pledge;
@@ -898,10 +903,11 @@ function openDetailed(cat="travel"){
   `);
   $$("#catpick .opt").forEach(b=>b.onclick=()=>openDetailed(b.dataset.c));
   const unitFor=(c,s)=> c==="travel"?"km" : c==="food"?"meal" : c==="home"?(s==="electricity"?"kWh":"kg") : "item";
-  function prev(){ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value)||0; $("#dprev").textContent=`= ${fmt(kgFor(cat,s,q))} CO₂e`; }
+  function prev(){ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value)||0; $("#dprev").textContent=`= ${fmt(kgFor(cat,s,q))} CO₂e`; $("#d-qty").removeAttribute("aria-invalid"); }
+  $("#d-qty").setAttribute("aria-describedby","dprev");   // tie the live preview / validation error to the field
   $("#d-sub").onchange=prev; $("#d-qty").oninput=prev; prev();
   $("#dsave").onclick=()=>{ const s=$("#d-sub").value, q=parseFloat($("#d-qty").value);
-    if(!(q>0)){ $("#dprev").innerHTML='<span class="err">Enter an amount above zero.</span>'; return; }
+    if(!(q>0)){ $("#dprev").innerHTML='<span class="err">Enter an amount above zero.</span>'; $("#d-qty").setAttribute("aria-invalid","true"); $("#d-qty").focus(); return; }
     const log=addLog(cat,s,q,unitFor(cat,s)); closeSheet(); refreshAll(); toast(`+${fmt(log.kg)} · ${SUB[s]}`, ()=>{ removeLog(log.id); refreshAll(); }); };
 }
 
@@ -910,7 +916,9 @@ let lastFocus=null;
 function openSheet(html){
   $("#sheet-body").innerHTML=html;
   $("#backdrop").classList.add("open"); $("#sheet").classList.add("open");
-  lastFocus=document.activeElement; $("#sheet").focus();
+  lastFocus=document.activeElement;
+  // Move focus into the dialog: prefer the first form field; never auto-focus a destructive button.
+  ($('#sheet input,#sheet select,#sheet textarea')||$("#sheet")).focus();
   document.addEventListener("keydown",escClose);
 }
 function closeSheet(){ $("#backdrop").classList.remove("open"); $("#sheet").classList.remove("open");

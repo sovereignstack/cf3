@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Dev-only tooling for Tread (smoke tests, icon generation). Not part of the deployed app.",
   "scripts": {
-    "test": "node smoke-test.js",
+    "test": "node unit-test.js && node smoke-test.js",
     "check": "node -e \"const fs=require('fs');const m=fs.readFileSync('../index.html','utf8').match(/<script>([\\s\\S]*?)<\\/script>/);require('fs').writeFileSync('/tmp/_tread_check.js',m[1]);\" && node --check /tmp/_tread_check.js && echo 'syntax OK'"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
-from PIL import Image, ImageDraw
-import math
+from PIL import Image, ImageDraw  # type: ignore[import-not-found]  # Pillow; dev-only, never shipped
+import math, os
 
 GREEN = (21, 128, 61)      # #15803D deep green
 GREEN_DK = (15, 91, 52)    # vein / depth
@@ -42,8 +42,10 @@ def make(size):
     d.line([(x1, y1), (x2, y2)], fill=GREEN_DK, width=max(2, size // 64))
     return img
 
+# Icons must land in the repo root; this script lives in dev/.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for s in (512, 192):
-    make(s).save(f"icon-{s}.png")
+    make(s).save(os.path.join(_ROOT, f"icon-{s}.png"))
 # small favicon
-make(64).save("icon-64.png")
-print("icons written")
+make(64).save(os.path.join(_ROOT, "icon-64.png"))
+print("icons written to", _ROOT)

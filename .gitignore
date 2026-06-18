@@ -3,3 +3,6 @@
 
 # Output artifacts, not app source
 mnt/
+
+# Dev dependencies (installed on demand; never shipped)
+dev/node_modules/
