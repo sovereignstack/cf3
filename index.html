@@ -442,6 +442,7 @@ function sumKg(arr){ return arr.reduce((a,l)=>a+l.kg,0); }
 function byCat(arr){ const o={travel:0,food:0,home:0,shopping:0}; arr.forEach(l=>o[l.cat]+=l.kg); return o; }
 function equiv(kg){ return { km: Math.round(kg/0.17), petrol: Math.round(kg/2.31) }; }
 const round = (n,d=0)=>{ const f=10**d; return Math.round(n*f)/f; };
+const clamp = (n,lo,hi)=> Math.min(hi, Math.max(lo, Number.isFinite(+n)?+n:lo));   // guard parsed numeric inputs
 function fmt(kg){ return kg>=1000 ? round(kg/1000,2)+" t" : Math.round(kg)+" kg"; }
 
 /* current-month figure: real logs if any, else baseline estimate */
@@ -463,11 +464,11 @@ const DEFAULT_MONTHLY_BILL = 1500;                                    // ₹/mon
 const LPG_CYLINDER_KG = 14.2;                                         // kg per domestic LPG cylinder (~1 used/month)
 const SHOPPING_ANNUAL_KG = { rare:80, some:200, often:450 };          // est. annual goods CO₂e by shopping habit
 function baselineFrom(a){
-  const km = a.km, mode=a.mode||"car", house=Math.max(1,a.house||3);
+  const km = clamp(a.km,0,2000), mode=a.mode||"car", house=clamp(a.house||3,1,50);
   let travel = km*DAYS_PER_YEAR*(F.travel[mode]??F.travel.car);
   travel += FLIGHT_ANNUAL_KG[a.flights] || 0;
   const food = MEALS_PER_DAY*DAYS_PER_YEAR*(DIET_MEAL_FACTOR[a.diet||"mixed"] ?? DIET_MEAL_FACTOR.mixed);
-  const kwhMo = (a.bill||DEFAULT_MONTHLY_BILL)/ELEC_TARIFF_PER_KWH;
+  const kwhMo = clamp(a.bill||DEFAULT_MONTHLY_BILL,0,1e6)/ELEC_TARIFF_PER_KWH;
   let home = kwhMo*12*F.home.electricity;
   if(a.cook==="lpg"||a.cook==="png") home += LPG_CYLINDER_KG*F.home.lpg*12; // ~1 cylinder/month
   home = home/house;
@@ -490,26 +491,32 @@ const ALL_CATEGORIES = 4;         // logging in all four categories earns the "a
 const WEEK_STREAK_DAYS = 7;       // streak length that earns the "week" badge
 function recomputeProgress(){
   const p=S.profile;
-  const byDay={}; S.logs.forEach(l=>{ byDay[l.dateISO]=(byDay[l.dateISO]||0)+1; });
-  let xp=0; Object.values(byDay).forEach(c=>xp+=Math.min(c,XP_MAX_LOGS_PER_DAY)*XP_PER_LOG);
-  Object.values(S.pledges).forEach(pl=>{ xp+= pl.status==="done"?XP_PLEDGE_DONE:XP_PLEDGE; });
+  const key=monthKey(todayISO());
+  // Single pass over the logs builds everything the gamification needs (was 4+ separate passes).
+  const byDay={}, days=new Set(), cats=new Set(); let monthKg=0;
+  for(const l of S.logs){
+    byDay[l.dateISO]=(byDay[l.dateISO]||0)+1;
+    days.add(l.dateISO); cats.add(l.cat);
+    if(monthKey(l.dateISO)===key) monthKg+=l.kg;
+  }
+  let xp=0; for(const c of Object.values(byDay)) xp+=Math.min(c,XP_MAX_LOGS_PER_DAY)*XP_PER_LOG;
+  for(const pl of Object.values(S.pledges)) xp+= pl.status==="done"?XP_PLEDGE_DONE:XP_PLEDGE;
   p.xp=xp;
-  const days=new Set(S.logs.map(l=>l.dateISO));
   let streak=0, d=new Date();
   if(!days.has(todayISO(d))) d.setDate(d.getDate()-1);   // forgiving: today optional
   while(days.has(todayISO(d))){ streak++; d.setDate(d.getDate()-1); }
   p.streak=streak; p.best=Math.max(p.best||0, streak);
   p.lastLog = S.logs.length ? [...days].sort().pop() : null;
   if(S.logs.length) award("first_log");
-  if(new Set(S.logs.map(l=>l.cat)).size>=ALL_CATEGORIES) award("allcats");
+  if(cats.size>=ALL_CATEGORIES) award("allcats");
   if(p.best>=WEEK_STREAK_DAYS) award("week");
   if(Object.values(S.pledges).some(pl=>pl.status==="done")) award("action1");
-  const key=monthKey(todayISO());
-  if(S.logs.length && sumKg(logsIn(key)) < p.baselineAnnualKg/12) award("under");
+  if(S.logs.length && monthKg < p.baselineAnnualKg/12) award("under");
 }
 
 /* ---- add / remove a log ---- */
 function addLog(cat,sub,qty,unit,dateISO,demo){
+  qty = Math.max(0, +qty || 0);   // never store a negative or NaN quantity
   const log={ id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),
               cat,sub,qty,unit, kg:kgFor(cat,sub,qty), dateISO:dateISO||todayISO(), ts:Date.now() };
   if(demo) log.demo=true;

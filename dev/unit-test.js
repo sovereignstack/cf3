@@ -96,6 +96,15 @@ whenReady(() => {
     for (let i = 0; i < 7; i++) w.addLog("travel", "car", 1, "km", isoAgo(i));
     ok(store().profile.streak >= 7 && store().badges.week, "a 7-day streak earns the week badge");
 
+    section("baselineFrom — flight, cooking, household, input clamping");
+    const q = { km: 20, mode: "car", diet: "mixed", cook: "lpg", shop: "some", bill: 1500, house: 3 };
+    ok(w.baselineFrom({ ...q, flights: 2 }).byCat.travel > w.baselineFrom({ ...q, flights: 0 }).byCat.travel, "frequent flights add to travel emissions");
+    ok(w.baselineFrom({ ...q, cook: "lpg" }).byCat.home > w.baselineFrom({ ...q, cook: "none" }).byCat.home, "LPG cooking adds to home emissions");
+    ok(w.baselineFrom({ ...q, house: 6 }).byCat.home < w.baselineFrom({ ...q, house: 1 }).byCat.home, "a larger household divides home emissions per person");
+    const wild = w.baselineFrom({ ...q, km: -100, bill: -50, house: 999 });
+    ok(wild.byCat.travel >= 0 && wild.byCat.home >= 0 && wild.total >= 0, "out-of-range inputs are clamped (no negative emissions)");
+    ok(w.addLog("food", "veg", -5, "meal").kg === 0 && w.addLog("food", "veg", NaN, "meal").kg === 0, "addLog clamps a negative/NaN quantity to 0");
+
     section("Storage error paths are non-fatal");
     w.localStorage.setItem("tread", "{ this is : not json");
     let loaded, loadThrew = false;
