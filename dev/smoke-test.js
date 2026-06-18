@@ -20,12 +20,14 @@ ok(/<script>/.test(html), "has an inline script");
 ok(!/https?:\/\//.test(html), "no external URLs anywhere in index.html");
 ok(!/\bfetch\s*\(/.test(script), "app code makes no fetch() calls");
 ok(!/XMLHttpRequest|sendBeacon|new WebSocket|EventSource|import\s*\(/.test(script), "no XHR / beacon / websocket / dynamic import in app code");
-ok(!/prefers-color-scheme\s*:\s*dark/.test(html), "no dark-mode styles (light theme only)");
 // The privacy guarantee must hold across every shipped file, not just index.html.
 const swSrc = fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8");
 const manifestSrc = fs.readFileSync(path.join(__dirname, "..", "manifest.webmanifest"), "utf8");
+const cssSrc = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+ok(!/prefers-color-scheme\s*:\s*dark/.test(html + cssSrc), "no dark-mode styles (light theme only)");
 ok(!/https?:\/\//.test(swSrc), "no external URLs in sw.js (same-origin shell caching only)");
 ok(!/https?:\/\//.test(manifestSrc), "no external URLs in manifest.webmanifest");
+ok(!/https?:\/\//.test(cssSrc) && !/@import|url\(\s*['"]?https?:/.test(cssSrc), "no external URLs/imports in styles.css");
 ok((swSrc.match(/\bfetch\s*\(/g) || []).length === 1, "sw.js holds the project's single fetch() (same-origin)");
 
 /* ---------- runtime flow ---------- */

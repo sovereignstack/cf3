@@ -3,10 +3,11 @@
    precache the whole app shell on install, then serve it cache-first. We deliberately do
    NOT cache arbitrary runtime responses — the precache already covers every asset, and
    skipping runtime caching keeps the cache bounded and behaviour predictable. */
-const VERSION = "tread-precache-v2";   // bump whenever the SHELL list or shell file contents change
+const VERSION = "tread-precache-v3";   // bump whenever the SHELL list or shell file contents change
 const SHELL = [
   "./",
   "./index.html",
+  "./styles.css",
   "./manifest.webmanifest",
   "./icon-64.png",
   "./icon-192.png",

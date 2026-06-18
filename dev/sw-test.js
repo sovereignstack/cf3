@@ -58,9 +58,9 @@ async function fireFetch(h, req) { let called = false, resp; h.fetch({ request: 
       const { handlers, caches } = loadSW(async () => { throw new Error("offline"); });
       await fireInstall(handlers);
       const keys = await caches.keys();
-      ok(keys.length === 1 && /v2/.test(keys[0]), `creates one versioned cache (${keys[0]})`);
+      ok(keys.length === 1 && /v3/.test(keys[0]), `creates one versioned cache (${keys[0]})`);
       const c = caches.store.get(keys[0]);
-      ["/", "/index.html", "/manifest.webmanifest", "/icon-64.png", "/icon-192.png", "/icon-512.png"]
+      ["/", "/index.html", "/styles.css", "/manifest.webmanifest", "/icon-64.png", "/icon-192.png", "/icon-512.png"]
         .forEach((p) => ok(c.m.has(p), `precaches ${p}`));
     }
 
@@ -72,7 +72,7 @@ async function fireFetch(h, req) { let called = false, resp; h.fetch({ request: 
       await fireActivate(handlers);
       const keys = await caches.keys();
       ok(!keys.includes("tread-v1"), "deletes the stale cache on activate");
-      ok(keys.some((k) => /v2/.test(k)), "keeps the current versioned cache");
+      ok(keys.some((k) => /v3/.test(k)), "keeps the current versioned cache");
     }
 
     section("fetch — cache-first, ignoreSearch, no runtime caching");
